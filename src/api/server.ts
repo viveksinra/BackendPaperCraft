@@ -14,6 +14,10 @@ import { metricsRouter, apiRequestDuration } from "./routes/metrics";
 import { authV2Router } from "./routes/v2/auth";
 import { companiesV2Router } from "./routes/v2/companies";
 import { membershipsV2Router, invitePublicRouter } from "./routes/v2/memberships";
+import { paperTemplatesV2Router } from "./routes/v2/paperTemplates";
+import { paperBlueprintsV2Router } from "./routes/v2/paperBlueprints";
+import { papersV2Router } from "./routes/v2/papers";
+import { paperSetsV2Router } from "./routes/v2/paperSets";
 
 export function buildApp() {
   const app = express();
@@ -73,6 +77,12 @@ export function buildApp() {
   app.use("/api/v2/companies", companiesV2Router);
   app.use("/api/v2/companies/:companyId/memberships", membershipsV2Router);
   app.use("/api/v2/invites", invitePublicRouter);
+
+  // Phase 2: Paper Creation & PDF Generation
+  app.use("/api/v2/companies/:companyId/paper-templates", paperTemplatesV2Router);
+  app.use("/api/v2/companies/:companyId/paper-blueprints", paperBlueprintsV2Router);
+  app.use("/api/v2/companies/:companyId/papers", papersV2Router);
+  app.use("/api/v2/companies/:companyId/paper-sets", paperSetsV2Router);
 
   app.use((req, res) => {
     res.status(404).sendEnvelope(`Route ${req.originalUrl} not found`, "error");

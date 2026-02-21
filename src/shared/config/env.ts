@@ -42,6 +42,12 @@ const EnvSchema = z.object({
   // PDF generation (Phase 2)
   PDF_SERVICE_URL: z.string().optional(),
   PDF_WORKER_CONCURRENCY: z.coerce.number().int().positive().default(2),
+
+  // AWS S3 (Phase 2)
+  AWS_S3_BUCKET: z.string().optional(),
+  AWS_S3_REGION: z.string().default("eu-west-2"),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
 });
 
 export type AppEnv = z.infer<typeof EnvSchema>;
@@ -86,4 +92,8 @@ export const env: AppEnv = EnvSchema.parse({
   STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
   PDF_SERVICE_URL: process.env.PDF_SERVICE_URL,
   PDF_WORKER_CONCURRENCY: process.env.PDF_WORKER_CONCURRENCY,
+  AWS_S3_BUCKET: process.env.AWS_S3_BUCKET,
+  AWS_S3_REGION: process.env.AWS_S3_REGION,
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
 });
