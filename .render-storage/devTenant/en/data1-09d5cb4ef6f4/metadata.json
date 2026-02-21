@@ -1,0 +1,103 @@
+{
+  "tenantId": "devTenant",
+  "companyId": "69108439b5a57c1aa5bda974",
+  "slug": "data1-09d5cb4ef6f4",
+  "locale": "en",
+  "canonical": "http://localhost:3033/blog/data1-09d5cb4ef6f4/",
+  "schemaType": "Article",
+  "qa": {
+    "score": 70,
+    "noindex": true,
+    "reasons": [],
+    "checks": [
+      {
+        "key": "required_fields",
+        "label": "Required fields",
+        "status": "pass"
+      },
+      {
+        "key": "schema",
+        "label": "Structured data",
+        "status": "pass"
+      },
+      {
+        "key": "internal_links",
+        "label": "Internal links",
+        "status": "pass"
+      },
+      {
+        "key": "cwv_budget",
+        "label": "CWV budget",
+        "status": "pass"
+      }
+    ],
+    "lighthouse": {
+      "lcp": 1.8,
+      "cls": 0.03
+    },
+    "previewUrl": "undefined://localhost:3000/69108439b5a57c1aa5bda974/blog/data1-09d5cb4ef6f4",
+    "suggestions": [],
+    "manualOverride": {
+      "score": 70,
+      "previousScore": 60,
+      "requestedBy": "vivek.kr212@gmail.com",
+      "requestedAt": "2025-11-30T11:50:23.652Z"
+    }
+  },
+  "links": {
+    "breadcrumb": [
+      {
+        "name": "Home",
+        "href": "/69108439b5a57c1aa5bda974/blog"
+      },
+      {
+        "name": "data1 09d5cb4ef6f4",
+        "href": "/69108439b5a57c1aa5bda974/blog/data1-09d5cb4ef6f4"
+      }
+    ],
+    "siblings": [
+      {
+        "name": "data1-09d5cb4ef6f4 1",
+        "href": "/69108439b5a57c1aa5bda974/blog/data1-09d5cb4ef6f4-1"
+      },
+      {
+        "name": "data1-09d5cb4ef6f4 2",
+        "href": "/69108439b5a57c1aa5bda974/blog/data1-09d5cb4ef6f4-2"
+      },
+      {
+        "name": "data1-09d5cb4ef6f4 3",
+        "href": "/69108439b5a57c1aa5bda974/blog/data1-09d5cb4ef6f4-3"
+      }
+    ],
+    "related": [
+      {
+        "name": "data1-09d5cb4ef6f4 related 1",
+        "href": "/69108439b5a57c1aa5bda974/blog/data1-09d5cb4ef6f4/related/1"
+      },
+      {
+        "name": "data1-09d5cb4ef6f4 related 2",
+        "href": "/69108439b5a57c1aa5bda974/blog/data1-09d5cb4ef6f4/related/2"
+      },
+      {
+        "name": "data1-09d5cb4ef6f4 related 3",
+        "href": "/69108439b5a57c1aa5bda974/blog/data1-09d5cb4ef6f4/related/3"
+      }
+    ]
+  },
+  "etag": "W/\"87e5330b710a2499\"",
+  "jsonLd": {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "talent hiring in Prayagraj",
+    "description": "Benchmark talent demand (75/100) with typical offers around $— across Prayagraj.",
+    "inLanguage": "en",
+    "mainEntityOfPage": "undefined://localhost:3000/69108439b5a57c1aa5bda974/blog/data1-09d5cb4ef6f4",
+    "image": "https://localhost:3000/public/placeholder.jpg",
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "Programmatic SEO",
+      "url": "https://localhost:3000/69108439b5a57c1aa5bda974/blog"
+    }
+  },
+  "storedAt": "2025-11-30T12:45:10.521Z"
+}

@@ -1,0 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+Use java script
+
+res.json format should be 
+res.json({message:"", variant:""})
+where variant can be success, error or info
+always send these two, if there is any data add in myData in the response
+- always work, like you are working for production apk

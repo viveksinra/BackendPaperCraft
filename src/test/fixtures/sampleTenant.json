@@ -1,0 +1,36 @@
+{
+  "tenantId": "demoTenant",
+  "companies": [
+    {
+      "id": "64b81f9f1c9d440000000001",
+      "name": "Demo Plumbing",
+      "slug": "demo-plumbing",
+      "branding": {
+        "displayName": "Demo Plumbing",
+        "primaryColor": "#0047FF",
+        "secondaryColor": "#00C2FF"
+      },
+      "seo": {
+        "metaTitleTemplate": "{{city}} Plumbing | Demo",
+        "metaDescriptionTemplate": "Trusted {{city}} plumbers for {{service}}",
+        "schemaType": "Service"
+      },
+      "datasets": [
+        {
+          "id": "64b81f9f1c9d440000000010",
+          "name": "Service Areas",
+          "slug": "service-areas",
+          "rows": [
+            {
+              "id": "64b81f9f1c9d440000000100",
+              "city": "Austin",
+              "service": "Water Heater Repair",
+              "heroImage": "https://cdn.demo/img/water-heater.jpg"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
