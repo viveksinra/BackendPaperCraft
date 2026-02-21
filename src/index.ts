@@ -1,9 +1,11 @@
+import http from "http";
 import { env } from "./shared/config/env";
 import { initSentry } from "./observability/sentry";
 import { logger } from "./shared/logger";
 import { connectMongo } from "./db/mongoose";
 import { getRedis } from "./queue/redisClient";
 import { buildApp } from "./api/server";
+import { initSocketServer } from "./shared/socket/socketServer";
 import "./shared/bootstrap";
 
 initSentry();
@@ -19,7 +21,12 @@ async function start() {
     }
 
     const app = buildApp();
-    app.listen(env.PORT, () => {
+    const httpServer = http.createServer(app);
+
+    // Initialize Socket.io on the same HTTP server
+    initSocketServer(httpServer);
+
+    httpServer.listen(env.PORT, () => {
       logger.info({ msg: "API listening", port: env.PORT, env: env.NODE_ENV });
     });
 

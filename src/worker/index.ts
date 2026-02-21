@@ -30,6 +30,10 @@ export async function bootstrapWorkers(options?: WorkerBootstrapOptions): Promis
 
     await ensureMongoConnection(options);
 
+    // Start workers
+    const { startTestSchedulerWorker } = await import("../workers/testSchedulerWorker");
+    startTestSchedulerWorker();
+
     logger.info({
       msg: "Workers bootstrapped",
       mode,

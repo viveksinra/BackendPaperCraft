@@ -18,6 +18,8 @@ import { paperTemplatesV2Router } from "./routes/v2/paperTemplates";
 import { paperBlueprintsV2Router } from "./routes/v2/paperBlueprints";
 import { papersV2Router } from "./routes/v2/papers";
 import { paperSetsV2Router } from "./routes/v2/paperSets";
+import { onlineTestsV2Router } from "./routes/v2/onlineTests";
+import { testTakingV2Router } from "./routes/v2/testTaking";
 
 export function buildApp() {
   const app = express();
@@ -83,6 +85,10 @@ export function buildApp() {
   app.use("/api/v2/companies/:companyId/paper-blueprints", paperBlueprintsV2Router);
   app.use("/api/v2/companies/:companyId/papers", papersV2Router);
   app.use("/api/v2/companies/:companyId/paper-sets", paperSetsV2Router);
+
+  // Phase 3: Online Test Engine
+  app.use("/api/v2/companies/:companyId/online-tests", onlineTestsV2Router);
+  app.use("/api/v2/tests", testTakingV2Router);
 
   app.use((req, res) => {
     res.status(404).sendEnvelope(`Route ${req.originalUrl} not found`, "error");
