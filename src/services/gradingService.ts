@@ -357,5 +357,37 @@ export async function finalizeGrading(
     }
   }
 
+  // Phase 9: Queue gamification + notification events for graded students
+  for (const attempt of attempts) {
+    try {
+      const { addGamificationEventJob } = await import("../queue/queues");
+      await addGamificationEventJob({
+        tenantId: test.tenantId,
+        companyId: companyId,
+        studentUserId: attempt.studentId.toString(),
+        action: "test_graded",
+        description: `Test "${test.title}" graded`,
+        referenceType: "online_test",
+        referenceId: testId,
+      });
+    } catch (err) {
+      logger.warn({ msg: "Failed to queue gamification event for test grading", error: (err as Error).message });
+    }
+
+    try {
+      const { onTestGraded } = await import("./notificationEventHandlers");
+      await onTestGraded({
+        tenantId: test.tenantId,
+        companyId: companyId,
+        recipientId: attempt.studentId.toString(),
+        testTitle: test.title,
+        testId: testId,
+        score: attempt.result?.percentage || 0,
+      });
+    } catch (err) {
+      logger.warn({ msg: "Failed to create test graded notification", error: (err as Error).message });
+    }
+  }
+
   return { gradedCount: attempts.length };
 }

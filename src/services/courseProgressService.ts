@@ -93,6 +93,22 @@ export async function markLessonComplete(data: {
   enrollment.progress.lastAccessedAt = new Date();
   await enrollment.save();
 
+  // Phase 9: Queue gamification event for lesson completion
+  try {
+    const { addGamificationEventJob } = await import("../queue/queues");
+    await addGamificationEventJob({
+      tenantId: data.tenantId,
+      companyId: data.companyId,
+      studentUserId: data.studentUserId,
+      action: "lesson_completed",
+      description: `Lesson completed in course`,
+      referenceType: "course",
+      referenceId: data.courseId,
+    });
+  } catch (err) {
+    logger.warn({ msg: "Failed to queue gamification event for lesson completion", error: (err as Error).message });
+  }
+
   // Check for 100% completion
   if (enrollment.progress.percentComplete >= 100) {
     await handleCourseCompletion(enrollment, course);
@@ -237,6 +253,35 @@ async function handleCourseCompletion(
     });
   } catch (err) {
     logger.warn({ msg: "Failed to queue completion notification", error: (err as Error).message });
+  }
+
+  // Phase 9: Queue gamification event for course completion
+  try {
+    const { addGamificationEventJob } = await import("../queue/queues");
+    await addGamificationEventJob({
+      tenantId: enrollment.tenantId,
+      companyId: enrollment.companyId.toString(),
+      studentUserId: enrollment.studentUserId.toString(),
+      action: "course_completed",
+      description: `Course "${course.title}" completed`,
+      referenceType: "course",
+      referenceId: String(course._id),
+    });
+  } catch (err) {
+    logger.warn({ msg: "Failed to queue gamification event for course completion", error: (err as Error).message });
+  }
+
+  try {
+    const { onCourseCompleted } = await import("./notificationEventHandlers");
+    await onCourseCompleted({
+      tenantId: enrollment.tenantId,
+      companyId: enrollment.companyId.toString(),
+      recipientId: enrollment.studentUserId.toString(),
+      courseTitle: course.title,
+      courseId: String(course._id),
+    });
+  } catch (err) {
+    logger.warn({ msg: "Failed to create course completion notification", error: (err as Error).message });
   }
 
   logger.info({

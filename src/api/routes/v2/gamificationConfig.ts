@@ -73,7 +73,7 @@ gamificationConfigV2Router.post("/badges", async (req: AuthedRequest, res: Respo
     const config = await configService.addBadge(
       tenantId,
       companyId,
-      parsed.data,
+      parsed.data as any,
       userEmail
     );
     return res.status(201).sendEnvelope("badge added", "success", { config });
@@ -97,7 +97,7 @@ gamificationConfigV2Router.patch("/badges/:badgeId", async (req: AuthedRequest, 
       tenantId,
       companyId,
       badgeId,
-      parsed.data,
+      parsed.data as any,
       userEmail
     );
     return res.ok("badge updated", { config });

@@ -108,6 +108,35 @@ export async function enrollStudent(data: {
     logger.warn({ msg: "Failed to queue enrollment welcome", error: (err as Error).message });
   }
 
+  // Phase 9: Queue gamification event for course enrollment
+  try {
+    const { addGamificationEventJob } = await import("../queue/queues");
+    await addGamificationEventJob({
+      tenantId: data.tenantId,
+      companyId: data.companyId,
+      studentUserId: data.studentUserId,
+      action: "course_enrolled",
+      description: `Enrolled in course`,
+      referenceType: "course",
+      referenceId: data.courseId,
+    });
+  } catch (err) {
+    logger.warn({ msg: "Failed to queue gamification event for enrollment", error: (err as Error).message });
+  }
+
+  try {
+    const { onCourseEnrolled } = await import("./notificationEventHandlers");
+    await onCourseEnrolled({
+      tenantId: data.tenantId,
+      companyId: data.companyId,
+      recipientId: data.studentUserId,
+      courseTitle: course.title,
+      courseId: data.courseId,
+    });
+  } catch (err) {
+    logger.warn({ msg: "Failed to create enrollment notification", error: (err as Error).message });
+  }
+
   logger.info({
     msg: "Student enrolled",
     courseId: data.courseId,

@@ -6,6 +6,7 @@ import { ClassModel } from "../models/class";
 import { OnlineTestModel } from "../models/onlineTest";
 import { QuestionModel } from "../models/question";
 import { TestAttemptModel } from "../models/testAttempt";
+import { logger } from "../shared/logger";
 
 const User = require(path.join(__dirname, "..", "..", "Models", "User"));
 
@@ -369,6 +370,22 @@ export async function submitHomework(
     { $inc: updateOps }
   );
 
+  // Phase 9: Queue gamification event for homework submission
+  try {
+    const { addGamificationEventJob } = await import("../queue/queues");
+    await addGamificationEventJob({
+      tenantId: submission.tenantId,
+      companyId: homework.companyId.toString(),
+      studentUserId: studentUserId,
+      action: "homework_submitted",
+      description: `Homework submitted${isLate ? " (late)" : ""}`,
+      referenceType: "homework",
+      referenceId: homeworkId,
+    });
+  } catch (err) {
+    logger.warn({ msg: "Failed to queue gamification event for homework submission", error: (err as Error).message });
+  }
+
   return submission;
 }
 
@@ -501,6 +518,37 @@ export async function gradeHomeworkSubmission(
   if (feedback !== undefined) submission.feedback = feedback;
 
   await submission.save();
+
+  // Phase 9: Queue gamification event + notification for homework grading
+  try {
+    const { addGamificationEventJob } = await import("../queue/queues");
+    await addGamificationEventJob({
+      tenantId: submission.tenantId,
+      companyId: companyId,
+      studentUserId: studentUserId,
+      action: "homework_graded",
+      description: `Homework graded: ${submission.percentage}%`,
+      referenceType: "homework",
+      referenceId: homeworkId,
+    });
+  } catch (err) {
+    logger.warn({ msg: "Failed to queue gamification event for homework grading", error: (err as Error).message });
+  }
+
+  try {
+    const { onHomeworkGraded } = await import("./notificationEventHandlers");
+    await onHomeworkGraded({
+      tenantId: submission.tenantId,
+      companyId: companyId,
+      recipientId: studentUserId,
+      homeworkTitle: homeworkId,
+      homeworkId: homeworkId,
+      grade: `${submission.percentage}%`,
+    });
+  } catch (err) {
+    logger.warn({ msg: "Failed to create homework graded notification", error: (err as Error).message });
+  }
+
   return submission;
 }
 

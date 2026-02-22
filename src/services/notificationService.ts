@@ -185,7 +185,7 @@ export async function getNotifications(
     }),
   ]);
 
-  return { notifications: notifications as NotificationDocument[], total, unreadCount };
+  return { notifications: notifications as any as NotificationDocument[], total, unreadCount };
 }
 
 // ─── 4. Mark as Read ───────────────────────────────────────────────────────

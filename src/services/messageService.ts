@@ -151,7 +151,7 @@ export async function getConversations(
     { $limit: pageSize },
   ];
 
-  const results = await MessageModel.aggregate(pipeline);
+  const results = await MessageModel.aggregate(pipeline as any);
 
   const conversations = results.map((r: any) => ({
     conversationId: r._id,
@@ -217,7 +217,7 @@ export async function getConversationMessages(
     MessageModel.countDocuments(filter),
   ]);
 
-  return { messages: messages as MessageDocument[], total };
+  return { messages: messages as any as MessageDocument[], total };
 }
 
 // ─── 4. Mark Message as Read ───────────────────────────────────────────────
@@ -370,7 +370,7 @@ export async function searchMessages(
         .sort({ createdAt: -1 })
         .skip((page - 1) * pageSize)
         .limit(pageSize)
-        .lean() as Promise<MessageDocument[]>,
+        .lean() as any as Promise<MessageDocument[]>,
       MessageModel.countDocuments(filter),
     ]);
   } catch {
@@ -380,7 +380,7 @@ export async function searchMessages(
         .sort({ createdAt: -1 })
         .skip((page - 1) * pageSize)
         .limit(pageSize)
-        .lean() as Promise<MessageDocument[]>,
+        .lean() as any as Promise<MessageDocument[]>,
       MessageModel.countDocuments(regexFilter),
     ]);
   }
@@ -413,5 +413,5 @@ export async function getSentMessages(
     MessageModel.countDocuments(filter),
   ]);
 
-  return { messages: messages as MessageDocument[], total };
+  return { messages: messages as any as MessageDocument[], total };
 }

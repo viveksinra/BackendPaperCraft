@@ -144,7 +144,7 @@ export async function listThreads(
     DiscussionThreadModel.countDocuments(filter),
   ]);
 
-  return { threads: threads as DiscussionThreadDocument[], total };
+  return { threads: threads as any as DiscussionThreadDocument[], total };
 }
 
 // ─── 3. Get Thread by ID ──────────────────────────────────────────────────
@@ -360,7 +360,7 @@ export async function getReplies(
     DiscussionReplyModel.countDocuments(filter),
   ]);
 
-  return { replies: replies as DiscussionReplyDocument[], total };
+  return { replies: replies as any as DiscussionReplyDocument[], total };
 }
 
 // ─── 8. Edit Reply ─────────────────────────────────────────────────────────
@@ -671,7 +671,7 @@ export async function getFlaggedContent(
   ]);
 
   return {
-    threads: threads as DiscussionThreadDocument[],
-    replies: replies as DiscussionReplyDocument[],
+    threads: threads as any as DiscussionThreadDocument[],
+    replies: replies as any as DiscussionReplyDocument[],
   };
 }
