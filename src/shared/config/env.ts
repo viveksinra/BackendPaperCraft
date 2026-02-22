@@ -53,6 +53,14 @@ const EnvSchema = z.object({
   AWS_S3_REGION: z.string().default("eu-west-2"),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
+
+  // Course uploads & CDN (Phase 8)
+  COURSE_UPLOAD_BUCKET: z.string().optional(),
+  CLOUDFRONT_DOMAIN: z.string().optional(),
+  CLOUDFRONT_KEY_PAIR_ID: z.string().optional(),
+  CLOUDFRONT_PRIVATE_KEY: z.string().optional(),
+  MAX_VIDEO_SIZE_BYTES: z.coerce.number().default(2147483648),
+  MAX_PDF_SIZE_BYTES: z.coerce.number().default(104857600),
 });
 
 export type AppEnv = z.infer<typeof EnvSchema>;
@@ -106,4 +114,10 @@ export const env: AppEnv = EnvSchema.parse({
   AWS_S3_REGION: process.env.AWS_S3_REGION,
   AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
   AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+  COURSE_UPLOAD_BUCKET: process.env.COURSE_UPLOAD_BUCKET,
+  CLOUDFRONT_DOMAIN: process.env.CLOUDFRONT_DOMAIN,
+  CLOUDFRONT_KEY_PAIR_ID: process.env.CLOUDFRONT_KEY_PAIR_ID,
+  CLOUDFRONT_PRIVATE_KEY: process.env.CLOUDFRONT_PRIVATE_KEY,
+  MAX_VIDEO_SIZE_BYTES: process.env.MAX_VIDEO_SIZE_BYTES,
+  MAX_PDF_SIZE_BYTES: process.env.MAX_PDF_SIZE_BYTES,
 });

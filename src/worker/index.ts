@@ -41,6 +41,19 @@ export async function bootstrapWorkers(options?: WorkerBootstrapOptions): Promis
     const { startReportGenerationWorker } = await import("../workers/reportGenerationWorker");
     startReportGenerationWorker();
 
+    // Phase 8 workers
+    const { startVideoProcessingWorker } = await import("../workers/videoProcessingWorker");
+    startVideoProcessingWorker();
+
+    const { startCertificateGenerationWorker } = await import("../workers/certificateGenerationWorker");
+    startCertificateGenerationWorker();
+
+    const { startCourseStatsUpdateWorker } = await import("../workers/courseStatsUpdateWorker");
+    startCourseStatsUpdateWorker();
+
+    const { startDripContentNotifierWorker } = await import("../workers/dripContentNotifierWorker");
+    startDripContentNotifierWorker();
+
     logger.info({
       msg: "Workers bootstrapped",
       mode,

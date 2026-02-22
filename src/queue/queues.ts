@@ -10,6 +10,9 @@ let notificationsQueue: Queue | null = null;
 let purchaseConfirmationQueue: Queue | null = null;
 let analyticsRecomputeQueue: Queue | null = null;
 let reportGenerationQueue: Queue | null = null;
+let videoProcessingQueue: Queue | null = null;
+let certificateGenerationQueue: Queue | null = null;
+let courseStatsUpdateQueue: Queue | null = null;
 
 function ensureQueues() {
   if (alertQueue) return;
@@ -57,6 +60,20 @@ function ensureQueues() {
   reportGenerationQueue = new Queue("report_generation", {
     connection,
     defaultJobOptions: { attempts: 3, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true, removeOnFail: false },
+  });
+
+  // Phase 8 queues
+  videoProcessingQueue = new Queue("course_video_processing", {
+    connection,
+    defaultJobOptions: { attempts: 2, backoff: { type: "exponential", delay: 10000 }, removeOnComplete: true },
+  });
+  certificateGenerationQueue = new Queue("certificate_generation", {
+    connection,
+    defaultJobOptions: { attempts: 2, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true },
+  });
+  courseStatsUpdateQueue = new Queue("course_stats_update", {
+    connection,
+    defaultJobOptions: { attempts: 3, removeOnComplete: true },
   });
 }
 
@@ -159,4 +176,57 @@ export async function addReportGenerationJob(data: { reportId: string }) {
     return null;
   }
   return reportGenerationQueue.add("generateReport", data);
+}
+
+// Phase 8 queue accessors
+export function getVideoProcessingQueue(): Queue | null {
+  ensureQueues();
+  return videoProcessingQueue;
+}
+
+export function getCertificateGenerationQueue(): Queue | null {
+  ensureQueues();
+  return certificateGenerationQueue;
+}
+
+export function getCourseStatsUpdateQueue(): Queue | null {
+  ensureQueues();
+  return courseStatsUpdateQueue;
+}
+
+export async function addVideoProcessingJob(data: Record<string, unknown>) {
+  ensureQueues();
+  if (!videoProcessingQueue) {
+    logger.warn({ msg: "Redis not available; skipping video processing job" });
+    return null;
+  }
+  return videoProcessingQueue.add("processVideo", data);
+}
+
+export async function addCertificateGenerationJob(data: {
+  tenantId: string;
+  companyId: string;
+  courseId: string;
+  studentUserId: string;
+  enrollmentId: string;
+}) {
+  ensureQueues();
+  if (!certificateGenerationQueue) {
+    logger.warn({ msg: "Redis not available; skipping certificate generation job" });
+    return null;
+  }
+  return certificateGenerationQueue.add("generateCertificate", data);
+}
+
+export async function addCourseStatsUpdateJob(data: {
+  tenantId: string;
+  companyId: string;
+  courseId: string;
+}) {
+  ensureQueues();
+  if (!courseStatsUpdateQueue) {
+    logger.warn({ msg: "Redis not available; skipping course stats update job" });
+    return null;
+  }
+  return courseStatsUpdateQueue.add("updateCourseStats", data);
 }

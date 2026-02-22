@@ -21,6 +21,52 @@ function toObjectId(id: string): mongoose.Types.ObjectId {
   return new mongoose.Types.ObjectId(id);
 }
 
+/**
+ * Find the Student document for a given userId, or auto-create one if the user
+ * exists and has a student Membership but no Student record (data gap from old
+ * team-invite system).
+ */
+async function findOrCreateStudent(userId: string): Promise<import("../models/student").StudentDocument> {
+  const oid = toObjectId(userId);
+  let student = await StudentModel.findOne({ userId: oid });
+  if (student) return student;
+
+  // No Student doc — check if the user exists at all
+  const user = await User.findById(oid);
+  if (!user) {
+    throw Object.assign(new Error("User account not found"), { status: 404 });
+  }
+
+  // Auto-create Student document — the isStudent middleware already verified
+  // the user has a valid student role (Membership, registeredAs, etc.)
+  const memberships = await Membership.find({ userEmail: user.email, role: "student" });
+
+  // Build organizations from existing memberships
+  const orgs: any[] = [];
+  for (const m of memberships) {
+    const company = await Company.findById(m.companyId);
+    if (company) {
+      orgs.push({
+        companyId: company._id,
+        tenantId: company.slug || "default",
+        joinedAt: m.createdAt || new Date(),
+        role: "student",
+        orgName: company.name,
+        isActive: true,
+      });
+    }
+  }
+
+  const studentCode = await generateStudentCode();
+  student = await StudentModel.create({
+    userId: oid,
+    studentCode,
+    organizations: orgs,
+  });
+
+  return student;
+}
+
 // ─── 1. Generate Student Code ───────────────────────────────────────────────
 
 const STUDENT_CODE_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -118,10 +164,7 @@ export async function joinOrganization(
   studentUserId: string,
   orgCode: string
 ): Promise<StudentDocument> {
-  const student = await StudentModel.findOne({ userId: toObjectId(studentUserId) });
-  if (!student) {
-    throw Object.assign(new Error("Student not found"), { status: 404 });
-  }
+  const student = await findOrCreateStudent(studentUserId);
 
   const company = await Company.findOne({
     username: { $regex: new RegExp(`^${orgCode}$`, "i") },
@@ -180,10 +223,7 @@ export async function joinOrganization(
 export async function getStudentProfile(
   studentUserId: string
 ): Promise<Record<string, unknown>> {
-  const student = await StudentModel.findOne({ userId: toObjectId(studentUserId) });
-  if (!student) {
-    throw Object.assign(new Error("Student not found"), { status: 404 });
-  }
+  const student = await findOrCreateStudent(studentUserId);
 
   const user = await User.findById(toObjectId(studentUserId)).select(
     "email firstName lastName"
@@ -221,10 +261,7 @@ export async function updateStudentProfile(
   studentUserId: string,
   input: UpdateProfileInput
 ): Promise<StudentDocument> {
-  const student = await StudentModel.findOne({ userId: toObjectId(studentUserId) });
-  if (!student) {
-    throw Object.assign(new Error("Student not found"), { status: 404 });
-  }
+  const student = await findOrCreateStudent(studentUserId);
 
   // Update allowed fields
   if (input.dateOfBirth !== undefined) {
@@ -270,10 +307,7 @@ export async function updateStudentProfile(
 export async function getStudentDashboard(
   studentUserId: string
 ): Promise<Record<string, unknown>> {
-  const student = await StudentModel.findOne({ userId: toObjectId(studentUserId) });
-  if (!student) {
-    throw Object.assign(new Error("Student not found"), { status: 404 });
-  }
+  const student = await findOrCreateStudent(studentUserId);
 
   const companyIds = student.organizations
     .filter((org) => org.isActive)
@@ -349,10 +383,7 @@ export async function getStudentTests(
   filters?: StudentTestFilters,
   pagination?: PaginationOpts
 ): Promise<{ tests: any[]; total: number; page: number; pageSize: number }> {
-  const student = await StudentModel.findOne({ userId: toObjectId(studentUserId) });
-  if (!student) {
-    throw Object.assign(new Error("Student not found"), { status: 404 });
-  }
+  const student = await findOrCreateStudent(studentUserId);
 
   const page = pagination?.page ?? 1;
   const pageSize = pagination?.pageSize ?? 20;
@@ -444,10 +475,7 @@ export async function getStudentResults(
   filters?: StudentResultFilters,
   pagination?: PaginationOpts
 ): Promise<{ results: any[]; total: number; page: number; pageSize: number }> {
-  const student = await StudentModel.findOne({ userId: toObjectId(studentUserId) });
-  if (!student) {
-    throw Object.assign(new Error("Student not found"), { status: 404 });
-  }
+  const student = await findOrCreateStudent(studentUserId);
 
   const page = pagination?.page ?? 1;
   const pageSize = pagination?.pageSize ?? 20;
@@ -506,10 +534,7 @@ export async function getStudentResultDetail(
   testId: string,
   attemptNumber?: number
 ): Promise<Record<string, unknown>> {
-  const student = await StudentModel.findOne({ userId: toObjectId(studentUserId) });
-  if (!student) {
-    throw Object.assign(new Error("Student not found"), { status: 404 });
-  }
+  const student = await findOrCreateStudent(studentUserId);
 
   // Find the attempt
   const attemptQuery: Record<string, unknown> = {
@@ -595,10 +620,7 @@ export async function getStudentPerformance(
   studentUserId: string,
   orgId?: string
 ): Promise<Record<string, unknown>> {
-  const student = await StudentModel.findOne({ userId: toObjectId(studentUserId) });
-  if (!student) {
-    throw Object.assign(new Error("Student not found"), { status: 404 });
-  }
+  const student = await findOrCreateStudent(studentUserId);
 
   // Get completed attempts
   const attemptQuery: Record<string, unknown> = {
@@ -731,10 +753,7 @@ export async function getStudentPerformance(
 export async function updateStudentStreak(
   studentUserId: string
 ): Promise<StudentDocument> {
-  const student = await StudentModel.findOne({ userId: toObjectId(studentUserId) });
-  if (!student) {
-    throw Object.assign(new Error("Student not found"), { status: 404 });
-  }
+  const student = await findOrCreateStudent(studentUserId);
 
   const now = new Date();
   const startOfToday = new Date(

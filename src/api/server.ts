@@ -45,6 +45,14 @@ import { elevenPlusAnalyticsV2Router } from "./routes/v2/elevenPlusAnalytics";
 import { reportsV2Router } from "./routes/v2/reports";
 import { studentAnalyticsV2Router } from "./routes/v2/studentAnalytics";
 import { studentAdminV2Router } from "./routes/v2/studentAdmin";
+import { coursesV2Router } from "./routes/v2/courses";
+import { courseContentV2Router } from "./routes/v2/courseContent";
+import { courseUploadV2Router } from "./routes/v2/courseUpload";
+import { courseCatalogV2Router } from "./routes/v2/courseCatalog";
+import { courseEnrollmentV2Router } from "./routes/v2/courseEnrollment";
+import { certificatesV2Router } from "./routes/v2/certificates";
+import { courseAnalyticsV2Router } from "./routes/v2/courseAnalytics";
+import { parentCoursesV2Router } from "./routes/v2/parentCourses";
 
 export function buildApp() {
   const app = express();
@@ -152,6 +160,16 @@ export function buildApp() {
   app.use("/api/v2/companies/:companyId/analytics/eleven-plus", elevenPlusAnalyticsV2Router);
   app.use("/api/v2/companies/:companyId/reports", reportsV2Router);
   app.use("/api/v2/student", studentAnalyticsV2Router);
+
+  // Phase 8: Udemy-Style Course Builder
+  app.use("/api/v2/companies/:companyId/courses", coursesV2Router);
+  app.use("/api/v2/companies/:companyId/courses/:courseId", courseContentV2Router);
+  app.use("/api/v2/companies/:companyId/courses/:courseId", courseUploadV2Router);
+  app.use("/api/v2/companies/:companyId/catalog", courseCatalogV2Router);
+  app.use("/api/v2/courses", courseEnrollmentV2Router);
+  app.use("/api/v2/certificates", certificatesV2Router);
+  app.use("/api/v2/companies/:companyId/course-analytics", courseAnalyticsV2Router);
+  app.use("/api/v2/parent", parentCoursesV2Router);
 
   app.use((req, res) => {
     res.status(404).sendEnvelope(`Route ${req.originalUrl} not found`, "error");
