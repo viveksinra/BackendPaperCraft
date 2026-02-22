@@ -28,11 +28,13 @@ export function ensureRole(...roles: string[]) {
         return res.status(403).sendEnvelope("not a member of this company", "error");
       }
 
-      // "owner" implicitly includes admin
-      const effectiveRoles = new Set([membership.role]);
-      if (membership.role === "owner") {
-        effectiveRoles.add("admin");
-      }
+      // Role hierarchy: owner > admin > senior_teacher > teacher > content_reviewer
+      const ROLE_HIERARCHY: Record<string, string[]> = {
+        owner: ["admin", "senior_teacher", "teacher", "content_reviewer"],
+        admin: ["senior_teacher", "teacher", "content_reviewer"],
+        senior_teacher: ["teacher", "content_reviewer"],
+      };
+      const effectiveRoles = new Set([membership.role, ...(ROLE_HIERARCHY[membership.role] || [])]);
 
       const hasRole = roles.some((r) => effectiveRoles.has(r));
       if (!hasRole) {

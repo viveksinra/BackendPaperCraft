@@ -175,7 +175,7 @@ const blueprints = [
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function seed() {
-  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://localhost:27017/papercraft";
+  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_DEVELOPMENT_URI || process.env.MONGO_URI || "mongodb://localhost:27017/papercraft";
   await mongoose.connect(mongoUri);
   console.log("Connected to MongoDB");
 

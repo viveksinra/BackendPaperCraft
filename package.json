@@ -9,7 +9,8 @@
     "dev:worker": "nodemon worker.js",
     "seed": "node scripts/seed-all.js",
     "seed:templates": "npx ts-node src/scripts/seedPreBuiltTemplates.ts",
-    "seed:demo": "node scripts/seed-demo-tenant.js"
+    "seed:demo": "node scripts/seed-demo-tenant.js",
+    "seed:chelmsford": "npx ts-node src/scripts/seedChelmsfordDemo.ts"
   },
   "keywords": [],
   "author": "",
