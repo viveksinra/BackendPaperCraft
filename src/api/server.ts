@@ -20,6 +20,23 @@ import { papersV2Router } from "./routes/v2/papers";
 import { paperSetsV2Router } from "./routes/v2/paperSets";
 import { onlineTestsV2Router } from "./routes/v2/onlineTests";
 import { testTakingV2Router } from "./routes/v2/testTaking";
+import { studentAuthV2Router } from "./routes/v2/studentAuth";
+import { studentV2Router } from "./routes/v2/student";
+import { parentAuthV2Router } from "./routes/v2/parentAuth";
+import { parentV2Router } from "./routes/v2/parent";
+import { classesV2Router } from "./routes/v2/classes";
+import { homeworkV2Router } from "./routes/v2/homework";
+import { studentHomeworkV2Router } from "./routes/v2/studentHomework";
+import { announcementsV2Router } from "./routes/v2/announcements";
+import { studentAnnouncementsV2Router } from "./routes/v2/studentAnnouncements";
+import { feesV2Router } from "./routes/v2/fees";
+import { productsV2Router } from "./routes/v2/products";
+import { catalogV2Router } from "./routes/v2/catalog";
+import { checkoutV2Router } from "./routes/v2/checkout";
+import { purchasesV2Router } from "./routes/v2/purchases";
+import { revenueV2Router } from "./routes/v2/revenue";
+import { stripeConnectV2Router } from "./routes/v2/stripeConnect";
+import { stripeWebhookV2Router } from "./routes/v2/stripeWebhook";
 
 export function buildApp() {
   const app = express();
@@ -35,6 +52,11 @@ export function buildApp() {
     })
   );
   app.use(compression());
+
+  // Stripe webhook MUST receive the raw body for signature verification.
+  // Register BEFORE the JSON body parser.
+  app.use("/api/v2/webhooks", stripeWebhookV2Router);
+
   app.use(express.json({ limit: "5mb" }));
   app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
@@ -89,6 +111,29 @@ export function buildApp() {
   // Phase 3: Online Test Engine
   app.use("/api/v2/companies/:companyId/online-tests", onlineTestsV2Router);
   app.use("/api/v2/tests", testTakingV2Router);
+
+  // Phase 4: Student & Parent Portal
+  app.use("/api/v2/auth/student", studentAuthV2Router);
+  app.use("/api/v2/student", studentV2Router);
+  app.use("/api/v2/auth/parent", parentAuthV2Router);
+  app.use("/api/v2/parent", parentV2Router);
+
+  // Phase 5: Class Management, Homework & Fee Tracking
+  app.use("/api/v2/companies/:companyId/classes", classesV2Router);
+  app.use("/api/v2/companies/:companyId/homework", homeworkV2Router);
+  app.use("/api/v2/student/homework", studentHomeworkV2Router);
+  app.use("/api/v2/companies/:companyId/announcements", announcementsV2Router);
+  app.use("/api/v2/student/announcements", studentAnnouncementsV2Router);
+  app.use("/api/v2/companies/:companyId/fees", feesV2Router);
+
+  // Phase 6: Payments & Monetization (Stripe)
+  app.use("/api/v2/companies/:companyId/products", productsV2Router);
+  app.use("/api/v2/companies/:companyId/catalog", catalogV2Router);
+  app.use("/api/v2/checkout", checkoutV2Router);
+  app.use("/api/v2", purchasesV2Router);
+  app.use("/api/v2/companies/:companyId/revenue", revenueV2Router);
+  app.use("/api/v2/companies/:companyId/stripe", stripeConnectV2Router);
+  // Note: stripeWebhookV2Router is registered above (before JSON parser) for raw body handling
 
   app.use((req, res) => {
     res.status(404).sendEnvelope(`Route ${req.originalUrl} not found`, "error");

@@ -24,12 +24,14 @@ This creates everything needed to log in and test the platform.
 | Role | Name | Email | Purpose |
 |------|------|-------|---------|
 | **owner** | Navin Pathak | navin@chelmsford11plus.com | Director — full access, manages org |
-| **admin** | Vivek Kumar | vivek@chelmsford11plus.com | Developer — full access, platform admin |
+| **admin** (superAdmin) | Vivek Kumar | vivek@chelmsford11plus.com | Developer — full access, platform admin, **super admin** |
 | **senior_teacher** | Sarah Williams | sarah@chelmsford11plus.com | Head of Maths — creates/approves papers |
 | **teacher** | James Anderson | james@chelmsford11plus.com | English tutor — creates questions/papers |
 | **content_reviewer** | Priya Sharma | priya@chelmsford11plus.com | QA lead — reviews and approves questions |
 | **student** | Oliver Brown | oliver@chelmsford11plus.com | Year 5 student — takes practice papers |
 | **parent** | Emma Johnson | emma@chelmsford11plus.com | Parent of Oliver — monitors progress |
+
+Test@1234
 
 ### Membership Roles (7 available)
 

@@ -133,6 +133,35 @@ const CompanySchema = new Schema({
       type: String,
       default: null
     }
+  },
+
+  // Stripe Connect fields (Phase 6)
+  stripeAccountId: {
+    type: String,
+    default: null,
+    index: true,
+    sparse: true
+  },
+  stripeAccountStatus: {
+    type: String,
+    enum: ["pending", "active", "restricted", "disabled", null],
+    default: null
+  },
+  stripeOnboardingComplete: {
+    type: Boolean,
+    default: false
+  },
+  stripePayoutsEnabled: {
+    type: Boolean,
+    default: false
+  },
+  stripeChargesEnabled: {
+    type: Boolean,
+    default: false
+  },
+  stripeAccountCreatedAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

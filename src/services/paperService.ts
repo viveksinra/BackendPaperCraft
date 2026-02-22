@@ -451,7 +451,7 @@ export async function finalizePaper(
   // Queue PDF generation
   const job = await addPdfGenerationJob(doc._id!.toString());
 
-  return { paper: doc, jobId: job.id ?? "" };
+  return { paper: doc, jobId: job?.id ?? "" };
 }
 
 // ─── Publish ─────────────────────────────────────────────────────────────────

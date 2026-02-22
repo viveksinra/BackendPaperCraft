@@ -45,6 +45,10 @@ const UserSchema = new Schema({
     trim: true,
     maxlength: 500
   },
+  isSuperAdmin: {
+    type: Boolean,
+    default: false
+  },
   lastActiveCompanyId: {
     type: Schema.Types.ObjectId,
     ref: "Company",

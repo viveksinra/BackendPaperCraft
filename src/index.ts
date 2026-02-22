@@ -3,7 +3,7 @@ import { env } from "./shared/config/env";
 import { initSentry } from "./observability/sentry";
 import { logger } from "./shared/logger";
 import { connectMongo } from "./db/mongoose";
-import { getRedis } from "./queue/redisClient";
+import { getRedis, isRedisAvailable } from "./queue/redisClient";
 import { buildApp } from "./api/server";
 import { initSocketServer } from "./shared/socket/socketServer";
 import "./shared/bootstrap";
@@ -15,7 +15,14 @@ async function start() {
     await connectMongo();
 
     if (env.REDIS_URL) {
-      await getRedis().ping();
+      try {
+        const redis = getRedis();
+        await redis.connect();
+        await redis.ping();
+        logger.info({ msg: "Redis ping OK" });
+      } catch (redisErr) {
+        logger.warn({ msg: "Redis unavailable; continuing without Redis", err: redisErr });
+      }
     } else {
       logger.warn({ msg: "REDIS_URL not set; skipping Redis connection" });
     }
@@ -43,8 +50,8 @@ function maybeStartEmbeddedWorkers() {
     return;
   }
 
-  if (!env.REDIS_URL) {
-    logger.warn({ msg: "Skipping embedded workers; REDIS_URL not configured" });
+  if (!env.REDIS_URL || !isRedisAvailable()) {
+    logger.warn({ msg: "Skipping embedded workers; Redis not available" });
     return;
   }
 

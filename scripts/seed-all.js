@@ -86,6 +86,7 @@ const USERS = [
     firstName: "Vivek",
     lastName: "Kumar",
     role: "admin",
+    isSuperAdmin: true,
     about: "Full-stack developer and platform administrator. Building the PaperCraft platform.",
     phoneNumber: "+44 7700 100002",
   },
@@ -141,7 +142,13 @@ async function connectMongo() {
 async function upsertUser(userData) {
   let user = await User.findOne({ email: userData.email });
   if (user) {
-    console.log(`   ✓ User exists: ${userData.email} (${userData.firstName} ${userData.lastName})`);
+    if (userData.isSuperAdmin && !user.isSuperAdmin) {
+      user.isSuperAdmin = true;
+      await user.save();
+      console.log(`   ~ Updated user: ${userData.email} → isSuperAdmin: true`);
+    } else {
+      console.log(`   ✓ User exists: ${userData.email} (${userData.firstName} ${userData.lastName})`);
+    }
     return user;
   }
 
@@ -153,6 +160,7 @@ async function upsertUser(userData) {
     lastName: userData.lastName,
     about: userData.about || "",
     phoneNumber: userData.phoneNumber || "",
+    ...(userData.isSuperAdmin ? { isSuperAdmin: true } : {}),
   });
   console.log(`   + Created user: ${userData.email} (${userData.firstName} ${userData.lastName})`);
   return user;

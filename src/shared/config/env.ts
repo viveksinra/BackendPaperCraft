@@ -36,8 +36,13 @@ const EnvSchema = z.object({
 
   // Stripe (Phase 6)
   STRIPE_SECRET_KEY: z.string().optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_CONNECT_RETURN_URL: z.string().url().optional(),
+  STRIPE_CONNECT_REFRESH_URL: z.string().url().optional(),
+  STRIPE_PLATFORM_FEE_PERCENT: z.coerce.number().min(0).max(50).default(0),
+  FRONTEND_CHECKOUT_SUCCESS_URL: z.string().url().optional(),
+  FRONTEND_CHECKOUT_CANCEL_URL: z.string().url().optional(),
 
   // PDF generation (Phase 2)
   PDF_SERVICE_URL: z.string().optional(),
@@ -88,8 +93,13 @@ export const env: AppEnv = EnvSchema.parse({
   DEVELOPER_FRONTEND_URL: process.env.DEVELOPER_FRONTEND_URL,
   PARENT_CHILD_FRONTEND_URL: process.env.PARENT_CHILD_FRONTEND_URL,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
-  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  STRIPE_CONNECT_RETURN_URL: process.env.STRIPE_CONNECT_RETURN_URL,
+  STRIPE_CONNECT_REFRESH_URL: process.env.STRIPE_CONNECT_REFRESH_URL,
+  STRIPE_PLATFORM_FEE_PERCENT: process.env.STRIPE_PLATFORM_FEE_PERCENT,
+  FRONTEND_CHECKOUT_SUCCESS_URL: process.env.FRONTEND_CHECKOUT_SUCCESS_URL,
+  FRONTEND_CHECKOUT_CANCEL_URL: process.env.FRONTEND_CHECKOUT_CANCEL_URL,
   PDF_SERVICE_URL: process.env.PDF_SERVICE_URL,
   PDF_WORKER_CONCURRENCY: process.env.PDF_WORKER_CONCURRENCY,
   AWS_S3_BUCKET: process.env.AWS_S3_BUCKET,
