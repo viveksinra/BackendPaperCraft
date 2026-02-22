@@ -55,6 +55,13 @@ import { courseAnalyticsV2Router } from "./routes/v2/courseAnalytics";
 import { parentCoursesV2Router } from "./routes/v2/parentCourses";
 import { questionsV2Router } from "./routes/v2/questions";
 import { subjectsV2Router } from "./routes/v2/subjects";
+// Phase 9: Communication, Gamification & Engagement
+import { messagesV2Router } from "./routes/v2/messages";
+import { notificationsV2Router } from "./routes/v2/notifications";
+import { notificationPreferencesV2Router } from "./routes/v2/notificationPreferences";
+import { discussionsV2Router } from "./routes/v2/discussions";
+import { gamificationV2Router } from "./routes/v2/gamification";
+import { gamificationConfigV2Router } from "./routes/v2/gamificationConfig";
 
 export function buildApp() {
   const app = express();
@@ -176,6 +183,14 @@ export function buildApp() {
   app.use("/api/v2/certificates", certificatesV2Router);
   app.use("/api/v2/companies/:companyId/course-analytics", courseAnalyticsV2Router);
   app.use("/api/v2/parent", parentCoursesV2Router);
+
+  // Phase 9: Communication, Gamification & Engagement
+  app.use("/api/v2/companies/:companyId/messages", messagesV2Router);
+  app.use("/api/v2/companies/:companyId/notifications", notificationsV2Router);
+  app.use("/api/v2/companies/:companyId/notification-preferences", notificationPreferencesV2Router);
+  app.use("/api/v2/companies/:companyId/discussions", discussionsV2Router);
+  app.use("/api/v2/companies/:companyId/gamification", gamificationV2Router);
+  app.use("/api/v2/companies/:companyId/gamification-config", gamificationConfigV2Router);
 
   app.use((req, res) => {
     res.status(404).sendEnvelope(`Route ${req.originalUrl} not found`, "error");

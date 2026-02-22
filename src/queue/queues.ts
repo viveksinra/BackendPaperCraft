@@ -14,6 +14,13 @@ let videoProcessingQueue: Queue | null = null;
 let certificateGenerationQueue: Queue | null = null;
 let courseStatsUpdateQueue: Queue | null = null;
 
+// Phase 9 queues
+let notificationEmailQueue: Queue | null = null;
+let notificationCleanupQueue: Queue | null = null;
+let gamificationEventsQueue: Queue | null = null;
+let streakCheckerQueue: Queue | null = null;
+let leaderboardResetQueue: Queue | null = null;
+
 function ensureQueues() {
   if (alertQueue) return;
   if (!isRedisAvailable()) return;
@@ -74,6 +81,28 @@ function ensureQueues() {
   courseStatsUpdateQueue = new Queue("course_stats_update", {
     connection,
     defaultJobOptions: { attempts: 3, removeOnComplete: true },
+  });
+
+  // Phase 9 queues
+  notificationEmailQueue = new Queue("notification_email", {
+    connection,
+    defaultJobOptions: { attempts: 3, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true },
+  });
+  notificationCleanupQueue = new Queue("notification_cleanup", {
+    connection,
+    defaultJobOptions: { attempts: 2, removeOnComplete: true },
+  });
+  gamificationEventsQueue = new Queue("gamification_events", {
+    connection,
+    defaultJobOptions: { attempts: 3, backoff: { type: "exponential", delay: 3000 }, removeOnComplete: true },
+  });
+  streakCheckerQueue = new Queue("streak_checker", {
+    connection,
+    defaultJobOptions: { attempts: 2, removeOnComplete: true },
+  });
+  leaderboardResetQueue = new Queue("leaderboard_reset", {
+    connection,
+    defaultJobOptions: { attempts: 2, removeOnComplete: true },
   });
 }
 
@@ -229,4 +258,90 @@ export async function addCourseStatsUpdateJob(data: {
     return null;
   }
   return courseStatsUpdateQueue.add("updateCourseStats", data);
+}
+
+// Phase 9 queue accessors
+export function getNotificationEmailQueue(): Queue | null {
+  ensureQueues();
+  return notificationEmailQueue;
+}
+
+export function getNotificationCleanupQueue(): Queue | null {
+  ensureQueues();
+  return notificationCleanupQueue;
+}
+
+export function getGamificationEventsQueue(): Queue | null {
+  ensureQueues();
+  return gamificationEventsQueue;
+}
+
+export function getStreakCheckerQueue(): Queue | null {
+  ensureQueues();
+  return streakCheckerQueue;
+}
+
+export function getLeaderboardResetQueue(): Queue | null {
+  ensureQueues();
+  return leaderboardResetQueue;
+}
+
+export async function addNotificationEmailJob(data: {
+  recipientEmail: string;
+  recipientName: string;
+  type: string;
+  subject: string;
+  title: string;
+  body: string;
+  actionUrl?: string;
+  companyName?: string;
+}) {
+  ensureQueues();
+  if (!notificationEmailQueue) {
+    logger.warn({ msg: "Redis not available; skipping notification email job" });
+    return null;
+  }
+  return notificationEmailQueue.add("sendNotificationEmail", data);
+}
+
+export async function addGamificationEventJob(data: {
+  tenantId: string;
+  companyId: string;
+  studentUserId: string;
+  action: string;
+  description?: string;
+  referenceType?: string;
+  referenceId?: string;
+}) {
+  ensureQueues();
+  if (!gamificationEventsQueue) {
+    logger.warn({ msg: "Redis not available; skipping gamification event job" });
+    return null;
+  }
+  return gamificationEventsQueue.add("processGamificationEvent", data);
+}
+
+export async function addStreakCheckerJob(data?: {
+  tenantId?: string;
+  companyId?: string;
+}) {
+  ensureQueues();
+  if (!streakCheckerQueue) {
+    logger.warn({ msg: "Redis not available; skipping streak checker job" });
+    return null;
+  }
+  return streakCheckerQueue.add("checkStreaks", data || {});
+}
+
+export async function addLeaderboardResetJob(data: {
+  resetType: "weekly" | "monthly";
+  tenantId?: string;
+  companyId?: string;
+}) {
+  ensureQueues();
+  if (!leaderboardResetQueue) {
+    logger.warn({ msg: "Redis not available; skipping leaderboard reset job" });
+    return null;
+  }
+  return leaderboardResetQueue.add("resetLeaderboard", data);
 }

@@ -46,6 +46,9 @@ export function initSocketServer(httpServer: HttpServer): Server {
       role,
     });
 
+    // ─── User room (Phase 9: for notifications, messages, gamification) ─
+    socket.join(`user:${userId}`);
+
     // ─── Room management ──────────────────────────────────────────────
 
     socket.on("join:test", (testId: string) => {
@@ -161,5 +164,16 @@ export function emitToMonitor(
 ): void {
   if (io) {
     io.to(`test:${testId}:monitor`).emit(event, data);
+  }
+}
+
+// Phase 9: Emit to a specific user (notifications, messages, gamification)
+export function emitToUser(
+  userId: string,
+  event: string,
+  data: unknown
+): void {
+  if (io) {
+    io.to(`user:${userId}`).emit(event, data);
   }
 }
