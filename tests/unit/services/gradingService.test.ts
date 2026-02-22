@@ -66,6 +66,15 @@ vi.mock("../../../src/services/resultComputationService", () => ({
   updateQuestionPerformance: (...args: unknown[]) => mockUpdateQuestionPerformance(...args),
 }));
 
+vi.mock("../../../src/queue/queues", () => ({
+  addAnalyticsRecomputeJob: vi.fn().mockResolvedValue(undefined),
+  addGamificationEventJob: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../../src/services/notificationEventHandlers", () => ({
+  onTestGraded: vi.fn().mockResolvedValue(undefined),
+}));
+
 import {
   gradeAnswer,
   bulkGradeQuestion,
@@ -94,6 +103,7 @@ function makeAttemptDoc(
     _id: new mongoose.Types.ObjectId(ATTEMPT_ID),
     companyId: new mongoose.Types.ObjectId(COMPANY_ID),
     testId: new mongoose.Types.ObjectId(TEST_ID),
+    studentId: new mongoose.Types.ObjectId(),
     status,
     answers: answers.map((a) => ({
       questionId: a.questionId,
@@ -228,6 +238,8 @@ describe("gradingService", () => {
       const test = {
         _id: new mongoose.Types.ObjectId(TEST_ID),
         companyId: new mongoose.Types.ObjectId(COMPANY_ID),
+        tenantId: "testTenant",
+        title: "Test Exam",
         sections: [{ questionIds: [qId] }],
       };
       mockOnlineTestFindOne.mockResolvedValue(test);
@@ -252,6 +264,8 @@ describe("gradingService", () => {
       const test = {
         _id: new mongoose.Types.ObjectId(TEST_ID),
         companyId: new mongoose.Types.ObjectId(COMPANY_ID),
+        tenantId: "testTenant",
+        title: "Test Exam",
         sections: [{ questionIds: [qId] }],
       };
       mockOnlineTestFindOne.mockResolvedValue(test);
@@ -297,6 +311,8 @@ describe("gradingService", () => {
       const test = {
         _id: new mongoose.Types.ObjectId(TEST_ID),
         companyId: new mongoose.Types.ObjectId(COMPANY_ID),
+        tenantId: "testTenant",
+        title: "Test Exam",
         sections: [],
       };
       mockOnlineTestFindOne.mockResolvedValue(test);

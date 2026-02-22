@@ -65,62 +65,56 @@ vi.mock("../../../src/models/parentLink", () => ({
   },
 }));
 
-// ── Mock: path (for legacy CJS require redirects) ───────────────────────────
+// ── Legacy CJS mocks ────────────────────────────────────────────────────────
+// The service uses require(path.join(__dirname, '..', '..', 'utils/auth')) etc.
+// Vitest does not intercept require(), so we patch Module._load to intercept
+// these CJS module loads and return our mock objects.
 
-const mockUser = {
-  findOne: vi.fn(),
-  findById: vi.fn(),
-  create: vi.fn(),
-};
-
-const mockMembership = {
-  findOne: vi.fn(),
-  create: vi.fn(),
-};
-
-const mockCompany = {
-  findOne: vi.fn(),
-};
-
-const mockLegacyAuth = {
-  createPasswordRecord: vi.fn(),
-  signToken: vi.fn(),
-};
-
-// Intercept legacy require() calls that the service performs via path.join
-vi.mock("path", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("path")>();
-  return {
-    ...actual,
-    default: {
-      ...actual,
-      join: (...segments: string[]) => {
-        const joined = segments.join("/");
-        if (joined.includes("utils/auth")) return "__mock__/auth";
-        if (joined.includes("Models/User")) return "__mock__/User";
-        if (joined.includes("Models/Membership")) return "__mock__/Membership";
-        if (joined.includes("Models/Company")) return "__mock__/Company";
-        return actual.join(...segments);
-      },
+const { mockUser, mockMembership, mockCompany, mockLegacyAuth } = vi.hoisted(() => {
+  const mocks = {
+    mockUser: {
+      findOne: vi.fn(),
+      findById: vi.fn(),
+      findByIdAndUpdate: vi.fn(),
+      create: vi.fn(),
     },
-    join: (...segments: string[]) => {
-      const joined = segments.join("/");
-      if (joined.includes("utils/auth")) return "__mock__/auth";
-      if (joined.includes("Models/User")) return "__mock__/User";
-      if (joined.includes("Models/Membership")) return "__mock__/Membership";
-      if (joined.includes("Models/Company")) return "__mock__/Company";
-      return actual.join(...segments);
+    mockMembership: {
+      findOne: vi.fn(),
+      find: vi.fn(),
+      create: vi.fn(),
+    },
+    mockCompany: {
+      findOne: vi.fn(),
+      findById: vi.fn(),
+    },
+    mockLegacyAuth: {
+      createPasswordRecord: vi.fn(),
+      signToken: vi.fn(),
     },
   };
-});
 
-vi.mock("__mock__/auth", () => mockLegacyAuth);
-vi.mock("__mock__/User", () => ({ default: mockUser, ...mockUser }));
-vi.mock("__mock__/Membership", () => ({
-  default: mockMembership,
-  ...mockMembership,
-}));
-vi.mock("__mock__/Company", () => ({ default: mockCompany, ...mockCompany }));
+  // Patch Node's Module._load to intercept require() calls for legacy CJS modules
+  const Module = require("module");
+  const originalLoad = Module._load;
+  Module._load = function (request: string, parent: any, isMain: boolean) {
+    const normalized = request.replace(/\\/g, "/");
+    if (normalized.endsWith("utils/auth") || normalized.includes("utils\\auth")) {
+      return mocks.mockLegacyAuth;
+    }
+    if (normalized.endsWith("Models/User") || normalized.includes("Models\\User")) {
+      return mocks.mockUser;
+    }
+    if (normalized.endsWith("Models/Membership") || normalized.includes("Models\\Membership")) {
+      return mocks.mockMembership;
+    }
+    if (normalized.endsWith("Models/Company") || normalized.includes("Models\\Company")) {
+      return mocks.mockCompany;
+    }
+    return originalLoad.call(this, request, parent, isMain);
+  };
+
+  return mocks;
+});
 
 // ── Import mocked modules so we can configure return values ─────────────────
 
@@ -162,7 +156,7 @@ function chainable(resolvedValue: unknown) {
 // ── Reset all mocks between tests ───────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

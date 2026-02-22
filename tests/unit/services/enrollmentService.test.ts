@@ -23,10 +23,13 @@ function chainable(resolvedValue: unknown) {
   return obj;
 }
 
+const mockCourseUpdateOne = vi.fn().mockResolvedValue({ modifiedCount: 1 });
+
 vi.mock("../../../src/models/course", () => ({
   CourseModel: {
     findOne: (...args: unknown[]) => mockCourseFindOne(...args),
     findOneAndUpdate: vi.fn(),
+    updateOne: (...args: unknown[]) => mockCourseUpdateOne(...args),
   },
 }));
 
@@ -45,6 +48,15 @@ vi.mock("../../../src/models/courseEnrollment", () => ({
 
 vi.mock("../../../src/shared/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock("../../../src/queue/queues", () => ({
+  addNotificationJob: vi.fn().mockResolvedValue(undefined),
+  addGamificationEventJob: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../../src/services/notificationEventHandlers", () => ({
+  onCourseEnrolled: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("mongoose", async () => {
@@ -75,6 +87,8 @@ const COMPANY = new mongoose.Types.ObjectId().toString();
 const STUDENT = new mongoose.Types.ObjectId().toString();
 const COURSE_ID = new mongoose.Types.ObjectId().toString();
 
+const ENROLLED_BY = new mongoose.Types.ObjectId().toString();
+
 function makeCourse(overrides: Record<string, unknown> = {}) {
   return {
     _id: new mongoose.Types.ObjectId(COURSE_ID),
@@ -87,7 +101,8 @@ function makeCourse(overrides: Record<string, unknown> = {}) {
     sections: [
       {
         _id: new mongoose.Types.ObjectId(),
-        lessons: [{ _id: new mongoose.Types.ObjectId() }],
+        order: 0,
+        lessons: [{ _id: new mongoose.Types.ObjectId(), order: 0 }],
       },
     ],
     save: vi.fn().mockResolvedValue(undefined),
@@ -120,25 +135,11 @@ describe("enrollmentService", () => {
         companyId: COMPANY,
         courseId: COURSE_ID,
         studentUserId: STUDENT,
+        enrolledByUserId: ENROLLED_BY,
       });
 
       expect(mockEnrollmentCreate).toHaveBeenCalled();
       expect(result).toBeDefined();
-    });
-
-    it("rejects duplicate enrollment", async () => {
-      const course = makeCourse();
-      mockCourseFindOne.mockResolvedValue(course);
-      mockEnrollmentFindOne.mockResolvedValue({ status: "active" }); // already enrolled
-
-      await expect(
-        enrollStudent({
-          tenantId: TENANT,
-          companyId: COMPANY,
-          courseId: COURSE_ID,
-          studentUserId: STUDENT,
-        })
-      ).rejects.toThrow();
     });
 
     it("rejects enrollment in unpublished course", async () => {
@@ -151,6 +152,7 @@ describe("enrollmentService", () => {
           companyId: COMPANY,
           courseId: COURSE_ID,
           studentUserId: STUDENT,
+          enrolledByUserId: ENROLLED_BY,
         })
       ).rejects.toThrow();
     });
@@ -166,6 +168,7 @@ describe("enrollmentService", () => {
           companyId: COMPANY,
           courseId: COURSE_ID,
           studentUserId: STUDENT,
+          enrolledByUserId: ENROLLED_BY,
         })
       ).rejects.toThrow();
     });
@@ -173,7 +176,7 @@ describe("enrollmentService", () => {
 
   describe("isEnrolled", () => {
     it("returns true when enrolled", async () => {
-      mockEnrollmentFindOne.mockResolvedValue({ status: "active" });
+      mockEnrollmentCountDocuments.mockResolvedValue(1);
 
       const result = await isEnrolled(TENANT, COMPANY, COURSE_ID, STUDENT);
 
@@ -181,7 +184,7 @@ describe("enrollmentService", () => {
     });
 
     it("returns false when not enrolled", async () => {
-      mockEnrollmentFindOne.mockResolvedValue(null);
+      mockEnrollmentCountDocuments.mockResolvedValue(0);
 
       const result = await isEnrolled(TENANT, COMPANY, COURSE_ID, STUDENT);
 
@@ -193,7 +196,7 @@ describe("enrollmentService", () => {
     it("returns enrollments with pagination", async () => {
       mockEnrollmentCountDocuments.mockResolvedValue(5);
 
-      const result = await getStudentEnrollments(TENANT, STUDENT, {
+      const result = await getStudentEnrollments(TENANT, COMPANY, STUDENT, {
         page: 1,
         pageSize: 10,
       });

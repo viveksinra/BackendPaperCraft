@@ -67,45 +67,54 @@ vi.mock("../../../src/models/question", () => ({
 }));
 
 // ── Legacy CJS mocks ────────────────────────────────────────────────────────
+// The service uses require(path.join(__dirname, '..', '..', 'utils/auth')) etc.
+// Vitest does not intercept require(), so we patch Module._load to intercept
+// these CJS module loads and return our mock objects.
 
-const mockUser = {
-  findOne: vi.fn(),
-  findById: vi.fn(),
-  create: vi.fn(),
-};
-
-const mockLegacyAuth = {
-  createPasswordRecord: vi.fn(),
-  signToken: vi.fn(),
-};
-
-vi.mock("path", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("path")>();
-  return {
-    ...actual,
-    default: {
-      ...actual,
-      join: (...segments: string[]) => {
-        const joined = segments.join("/");
-        if (joined.includes("utils/auth")) return "__mock_parent__/auth";
-        if (joined.includes("Models/User")) return "__mock_parent__/User";
-        return actual.join(...segments);
-      },
+const { mockUser, mockLegacyAuth, mockCompany, mockMembership } = vi.hoisted(() => {
+  const mocks = {
+    mockUser: {
+      findOne: vi.fn(),
+      findById: vi.fn(),
+      create: vi.fn(),
     },
-    join: (...segments: string[]) => {
-      const joined = segments.join("/");
-      if (joined.includes("utils/auth")) return "__mock_parent__/auth";
-      if (joined.includes("Models/User")) return "__mock_parent__/User";
-      return actual.join(...segments);
+    mockLegacyAuth: {
+      createPasswordRecord: vi.fn(),
+      signToken: vi.fn(),
+    },
+    mockCompany: {
+      findOne: vi.fn(),
+      findById: vi.fn(),
+    },
+    mockMembership: {
+      findOne: vi.fn(),
+      find: vi.fn(),
+      create: vi.fn(),
     },
   };
-});
 
-vi.mock("__mock_parent__/auth", () => mockLegacyAuth);
-vi.mock("__mock_parent__/User", () => ({
-  default: mockUser,
-  ...mockUser,
-}));
+  // Patch Node's Module._load to intercept require() calls for legacy CJS modules
+  const Module = require("module");
+  const originalLoad = Module._load;
+  Module._load = function (request: string, parent: any, isMain: boolean) {
+    const normalized = request.replace(/\\/g, "/");
+    if (normalized.endsWith("utils/auth") || normalized.includes("utils\\auth")) {
+      return mocks.mockLegacyAuth;
+    }
+    if (normalized.endsWith("Models/User") || normalized.includes("Models\\User")) {
+      return mocks.mockUser;
+    }
+    if (normalized.endsWith("Models/Membership") || normalized.includes("Models\\Membership")) {
+      return mocks.mockMembership;
+    }
+    if (normalized.endsWith("Models/Company") || normalized.includes("Models\\Company")) {
+      return mocks.mockCompany;
+    }
+    return originalLoad.call(this, request, parent, isMain);
+  };
+
+  return mocks;
+});
 
 // ── Import mocked modules ───────────────────────────────────────────────────
 
@@ -173,6 +182,7 @@ describe("registerParent", () => {
     expect(mockUser.create).toHaveBeenCalledOnce();
     expect(mockLegacyAuth.signToken).toHaveBeenCalledWith({
       sub: "parent@test.com",
+      role: "parent",
     });
   });
 

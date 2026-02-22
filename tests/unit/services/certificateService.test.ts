@@ -4,7 +4,9 @@ import mongoose from "mongoose";
 // ─── Mocks ────────────────────────────────────────────────────────────────
 
 const mockCourseFindOne = vi.fn();
+const mockCourseFindById = vi.fn();
 const mockEnrollmentFindOne = vi.fn();
+const mockEnrollmentFindById = vi.fn();
 const mockUploadPdf = vi.fn();
 const mockPresignedUrl = vi.fn();
 const mockGenerateHtml = vi.fn();
@@ -12,12 +14,28 @@ const mockGenerateHtml = vi.fn();
 vi.mock("../../../src/models/course", () => ({
   CourseModel: {
     findOne: (...args: unknown[]) => mockCourseFindOne(...args),
+    findById: (...args: unknown[]) => {
+      mockCourseFindById(...args);
+      const result = mockCourseFindById.mock.results[mockCourseFindById.mock.results.length - 1]?.value;
+      return {
+        lean: () => Promise.resolve(result),
+        then: (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+      };
+    },
   },
 }));
 
 vi.mock("../../../src/models/courseEnrollment", () => ({
   CourseEnrollmentModel: {
-    findOne: (...args: unknown[]) => mockEnrollmentFindOne(...args),
+    findOne: (...args: unknown[]) => {
+      mockEnrollmentFindOne(...args);
+      const result = mockEnrollmentFindOne.mock.results[mockEnrollmentFindOne.mock.results.length - 1]?.value;
+      return {
+        lean: () => Promise.resolve(result),
+        then: (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+      };
+    },
+    findById: (...args: unknown[]) => mockEnrollmentFindById(...args),
   },
 }));
 
@@ -34,21 +52,39 @@ vi.mock("../../../src/shared/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("puppeteer", () => ({
+  default: {
+    launch: vi.fn().mockResolvedValue({
+      newPage: vi.fn().mockResolvedValue({
+        setContent: vi.fn().mockResolvedValue(undefined),
+        pdf: vi.fn().mockResolvedValue(Buffer.from("fake-pdf")),
+      }),
+      close: vi.fn().mockResolvedValue(undefined),
+    }),
+  },
+}));
+
 // Mock User and Company models
 vi.mock("mongoose", async () => {
   const actual = await vi.importActual<typeof import("mongoose")>("mongoose");
+  const mockData = {
+    _id: new (actual as any).Types.ObjectId(),
+    firstName: "Test",
+    lastName: "Student",
+    name: "Test Institute",
+    email: "test@test.com",
+  };
   return {
     ...actual,
     default: {
       ...actual,
       models: {},
       model: vi.fn().mockReturnValue({
-        findById: vi.fn().mockResolvedValue({
-          _id: new (actual as any).Types.ObjectId(),
-          firstName: "Test",
-          lastName: "Student",
-          name: "Test Institute",
-        }),
+        findById: vi.fn().mockImplementation(() => ({
+          lean: () => Promise.resolve(mockData),
+          then: (resolve: (v: unknown) => void) => Promise.resolve(mockData).then(resolve),
+        })),
+        findOne: vi.fn().mockResolvedValue(null),
       }),
     },
   };
@@ -76,7 +112,13 @@ function makeEnrollment(overrides: Record<string, unknown> = {}) {
     courseId: new mongoose.Types.ObjectId(COURSE_ID),
     studentUserId: new mongoose.Types.ObjectId(STUDENT),
     status: "completed",
-    certificate: null,
+    completedAt: new Date(),
+    certificate: {
+      issued: false,
+      issuedAt: null,
+      certificateUrl: "",
+      certificateNumber: "",
+    },
     save: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -92,13 +134,17 @@ describe("certificateService", () => {
   describe("generateCertificate", () => {
     it("generates a PDF certificate and updates enrollment", async () => {
       const enrollment = makeEnrollment();
-      mockEnrollmentFindOne.mockResolvedValue(enrollment);
+      mockEnrollmentFindById.mockResolvedValue(enrollment);
+      // Mock findOne for certificate number uniqueness check
+      mockEnrollmentFindOne.mockResolvedValue(null);
       const course = {
         _id: new mongoose.Types.ObjectId(COURSE_ID),
         title: "Test Course",
         certificateEnabled: true,
+        teacherId: new mongoose.Types.ObjectId(),
+        stats: { totalLessons: 5, totalDurationMinutes: 60 },
       };
-      mockCourseFindOne.mockResolvedValue(course);
+      mockCourseFindById.mockResolvedValue(course);
       mockGenerateHtml.mockReturnValue("<html>cert</html>");
       mockUploadPdf.mockResolvedValue({ url: "https://s3.example.com/cert.pdf", key: "certs/cert.pdf" });
 
@@ -133,12 +179,18 @@ describe("certificateService", () => {
     it("returns valid data for existing certificate", async () => {
       const enrollment = makeEnrollment({
         certificate: {
+          issued: true,
           certificateNumber: "CERT-2026-ABC12",
           issuedAt: new Date(),
-          pdfUrl: "https://s3.example.com/cert.pdf",
+          certificateUrl: "certs/cert.pdf",
         },
+        createdAt: new Date(),
       });
       mockEnrollmentFindOne.mockResolvedValue(enrollment);
+      mockCourseFindById.mockResolvedValue({
+        _id: new mongoose.Types.ObjectId(COURSE_ID),
+        title: "Test Course",
+      });
 
       const result = await verifyCertificate("CERT-2026-ABC12");
 
@@ -159,27 +211,26 @@ describe("certificateService", () => {
       const enrollment = makeEnrollment({
         studentUserId: new mongoose.Types.ObjectId(STUDENT),
         certificate: {
+          issued: true,
           certificateNumber: "CERT-2026-ABC12",
-          s3Key: "certs/cert.pdf",
+          certificateUrl: "certs/cert.pdf",
+          issuedAt: new Date(),
         },
       });
       mockEnrollmentFindOne.mockResolvedValue(enrollment);
       mockPresignedUrl.mockResolvedValue("https://presigned.example.com/cert.pdf");
 
-      const result = await getCertificateDownloadUrl(ENROLLMENT_ID, STUDENT);
+      const result = await getCertificateDownloadUrl(TENANT, COMPANY, ENROLLMENT_ID, STUDENT);
 
       expect(mockPresignedUrl).toHaveBeenCalled();
       expect(result).toBeDefined();
     });
 
     it("rejects download for wrong student", async () => {
-      const enrollment = makeEnrollment({
-        studentUserId: new mongoose.Types.ObjectId(), // different student
-      });
-      mockEnrollmentFindOne.mockResolvedValue(enrollment);
+      mockEnrollmentFindOne.mockResolvedValue(null);
 
       await expect(
-        getCertificateDownloadUrl(ENROLLMENT_ID, STUDENT)
+        getCertificateDownloadUrl(TENANT, COMPANY, ENROLLMENT_ID, STUDENT)
       ).rejects.toThrow();
     });
   });

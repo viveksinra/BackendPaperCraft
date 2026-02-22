@@ -3,21 +3,21 @@ import mongoose from 'mongoose';
 
 // ---- Mocks ----
 
-const mockProductModel: Record<string, any> = {
-  create: vi.fn(),
-  findOne: vi.fn(),
-  find: vi.fn(),
-  findOneAndUpdate: vi.fn(),
-  countDocuments: vi.fn(),
-};
-
-const mockPaperSetModel: Record<string, any> = {
-  findOne: vi.fn(),
-};
-
-const mockCompanyModel: Record<string, any> = {
-  findById: vi.fn(),
-};
+const { mockProductModel, mockPaperSetModel, mockCompanyModel } = vi.hoisted(() => ({
+  mockProductModel: {
+    create: vi.fn(),
+    findOne: vi.fn(),
+    find: vi.fn(),
+    findOneAndUpdate: vi.fn(),
+    countDocuments: vi.fn(),
+  } as Record<string, any>,
+  mockPaperSetModel: {
+    findOne: vi.fn(),
+  } as Record<string, any>,
+  mockCompanyModel: {
+    findById: vi.fn(),
+  } as Record<string, any>,
+}));
 
 vi.mock('../../../src/models/product', () => ({
   ProductModel: mockProductModel,

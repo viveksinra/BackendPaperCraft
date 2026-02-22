@@ -4,18 +4,34 @@ import mongoose from "mongoose";
 // ─── Mocks ────────────────────────────────────────────────────────────────
 
 const mockCourseFindOne = vi.fn();
+const mockCourseFindById = vi.fn();
+const mockCourseUpdateOne = vi.fn();
 const mockEnrollmentFindOne = vi.fn();
+const mockEnrollmentCountDocuments = vi.fn();
 
 vi.mock("../../../src/models/course", () => ({
   CourseModel: {
     findOne: (...args: unknown[]) => mockCourseFindOne(...args),
+    findById: (...args: unknown[]) => mockCourseFindById(...args),
+    updateOne: (...args: unknown[]) => mockCourseUpdateOne(...args),
   },
 }));
 
 vi.mock("../../../src/models/courseEnrollment", () => ({
   CourseEnrollmentModel: {
     findOne: (...args: unknown[]) => mockEnrollmentFindOne(...args),
+    countDocuments: (...args: unknown[]) => mockEnrollmentCountDocuments(...args),
   },
+}));
+
+vi.mock("../../../src/queue/queues", () => ({
+  addCertificateGenerationJob: vi.fn().mockResolvedValue(undefined),
+  addNotificationJob: vi.fn().mockResolvedValue(undefined),
+  addGamificationEventJob: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../../src/services/notificationEventHandlers", () => ({
+  onCourseCompleted: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../../src/shared/logger", () => ({
@@ -46,13 +62,16 @@ function makeCourse() {
     _id: new mongoose.Types.ObjectId(COURSE_ID),
     tenantId: TENANT,
     companyId: new mongoose.Types.ObjectId(COMPANY),
+    certificateEnabled: false,
+    title: "Test Course",
     sections: [
       {
         _id: new mongoose.Types.ObjectId(SECTION_ID),
+        order: 0,
         lessons: [
-          { _id: new mongoose.Types.ObjectId(LESSON_1), title: "L1", type: "text" },
-          { _id: new mongoose.Types.ObjectId(LESSON_2), title: "L2", type: "video" },
-          { _id: new mongoose.Types.ObjectId(LESSON_3), title: "L3", type: "quiz", dripDate: null },
+          { _id: new mongoose.Types.ObjectId(LESSON_1), title: "L1", type: "text", order: 0, dripDate: null },
+          { _id: new mongoose.Types.ObjectId(LESSON_2), title: "L2", type: "video", order: 1, dripDate: null },
+          { _id: new mongoose.Types.ObjectId(LESSON_3), title: "L3", type: "quiz", order: 2, dripDate: null },
         ],
       },
     ],
@@ -60,20 +79,39 @@ function makeCourse() {
 }
 
 function makeEnrollment(overrides: Record<string, unknown> = {}) {
-  return {
+  const defaults: Record<string, unknown> = {
     _id: new mongoose.Types.ObjectId(),
     tenantId: TENANT,
     companyId: new mongoose.Types.ObjectId(COMPANY),
     courseId: new mongoose.Types.ObjectId(COURSE_ID),
     studentUserId: new mongoose.Types.ObjectId(STUDENT),
     status: "active",
-    completedLessons: [],
-    progressPercentage: 0,
-    currentLessonId: null,
-    totalTimeSpentMinutes: 0,
+    completedAt: null,
+    progress: {
+      completedLessons: [],
+      percentComplete: 0,
+      currentSectionId: null,
+      currentLessonId: null,
+      lastAccessedAt: null,
+      totalTimeSpentSeconds: 0,
+    },
+    certificate: {
+      issued: false,
+      issuedAt: null,
+      certificateUrl: "",
+      certificateNumber: "",
+    },
     save: vi.fn().mockResolvedValue(undefined),
-    ...overrides,
   };
+  // Merge overrides, supporting nested progress overrides
+  const result = { ...defaults, ...overrides };
+  if (overrides.progress) {
+    result.progress = { ...(defaults.progress as Record<string, unknown>), ...(overrides.progress as Record<string, unknown>) };
+  }
+  if (overrides.certificate) {
+    result.certificate = { ...(defaults.certificate as Record<string, unknown>), ...(overrides.certificate as Record<string, unknown>) };
+  }
+  return result;
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────
@@ -87,7 +125,7 @@ describe("courseProgressService", () => {
     it("marks a lesson as complete and updates percentage", async () => {
       const course = makeCourse();
       const enrollment = makeEnrollment();
-      mockCourseFindOne.mockResolvedValue(course);
+      mockCourseFindById.mockResolvedValue(course);
       mockEnrollmentFindOne.mockResolvedValue(enrollment);
 
       await markLessonComplete({
@@ -100,18 +138,24 @@ describe("courseProgressService", () => {
       });
 
       expect(enrollment.save).toHaveBeenCalled();
-      expect(enrollment.completedLessons.length).toBeGreaterThan(0);
+      expect((enrollment.progress as Record<string, unknown>).completedLessons as unknown[]).toHaveLength(1);
     });
 
     it("is idempotent - completing same lesson twice", async () => {
       const course = makeCourse();
       const enrollment = makeEnrollment({
-        completedLessons: [
-          { sectionId: new mongoose.Types.ObjectId(SECTION_ID), lessonId: new mongoose.Types.ObjectId(LESSON_1), completedAt: new Date() },
-        ],
-        progressPercentage: 33,
+        progress: {
+          completedLessons: [
+            { sectionId: new mongoose.Types.ObjectId(SECTION_ID), lessonId: new mongoose.Types.ObjectId(LESSON_1), completedAt: new Date(), timeSpentSeconds: 0, quizScore: null },
+          ],
+          percentComplete: 33,
+          currentSectionId: null,
+          currentLessonId: null,
+          lastAccessedAt: null,
+          totalTimeSpentSeconds: 0,
+        },
       });
-      mockCourseFindOne.mockResolvedValue(course);
+      mockCourseFindById.mockResolvedValue(course);
       mockEnrollmentFindOne.mockResolvedValue(enrollment);
 
       await markLessonComplete({
@@ -124,7 +168,7 @@ describe("courseProgressService", () => {
       });
 
       // Should still only have 1 completion
-      expect(enrollment.completedLessons.length).toBe(1);
+      expect((enrollment.progress as Record<string, unknown>).completedLessons as unknown[]).toHaveLength(1);
     });
   });
 
@@ -132,12 +176,18 @@ describe("courseProgressService", () => {
     it("removes a lesson from completedLessons", async () => {
       const course = makeCourse();
       const enrollment = makeEnrollment({
-        completedLessons: [
-          { sectionId: new mongoose.Types.ObjectId(SECTION_ID), lessonId: new mongoose.Types.ObjectId(LESSON_1), completedAt: new Date() },
-        ],
-        progressPercentage: 33,
+        progress: {
+          completedLessons: [
+            { sectionId: new mongoose.Types.ObjectId(SECTION_ID), lessonId: new mongoose.Types.ObjectId(LESSON_1), completedAt: new Date(), timeSpentSeconds: 0, quizScore: null },
+          ],
+          percentComplete: 33,
+          currentSectionId: null,
+          currentLessonId: null,
+          lastAccessedAt: null,
+          totalTimeSpentSeconds: 0,
+        },
       });
-      mockCourseFindOne.mockResolvedValue(course);
+      mockCourseFindById.mockResolvedValue(course);
       mockEnrollmentFindOne.mockResolvedValue(enrollment);
 
       await markLessonIncomplete({
@@ -145,7 +195,6 @@ describe("courseProgressService", () => {
         companyId: COMPANY,
         courseId: COURSE_ID,
         studentUserId: STUDENT,
-        sectionId: SECTION_ID,
         lessonId: LESSON_1,
       });
 
@@ -155,7 +204,16 @@ describe("courseProgressService", () => {
 
   describe("trackTimeSpent", () => {
     it("adds time to enrollment total", async () => {
-      const enrollment = makeEnrollment({ totalTimeSpentMinutes: 10 });
+      const enrollment = makeEnrollment({
+        progress: {
+          completedLessons: [],
+          percentComplete: 0,
+          currentSectionId: null,
+          currentLessonId: null,
+          lastAccessedAt: null,
+          totalTimeSpentSeconds: 600,
+        },
+      });
       mockEnrollmentFindOne.mockResolvedValue(enrollment);
 
       await trackTimeSpent({
@@ -163,9 +221,8 @@ describe("courseProgressService", () => {
         companyId: COMPANY,
         courseId: COURSE_ID,
         studentUserId: STUDENT,
-        sectionId: SECTION_ID,
         lessonId: LESSON_1,
-        seconds: 300,
+        additionalSeconds: 300,
       });
 
       expect(enrollment.save).toHaveBeenCalled();
@@ -176,11 +233,18 @@ describe("courseProgressService", () => {
     it("returns the next incomplete lesson", async () => {
       const course = makeCourse();
       const enrollment = makeEnrollment({
-        completedLessons: [
-          { sectionId: new mongoose.Types.ObjectId(SECTION_ID), lessonId: new mongoose.Types.ObjectId(LESSON_1), completedAt: new Date() },
-        ],
+        progress: {
+          completedLessons: [
+            { sectionId: new mongoose.Types.ObjectId(SECTION_ID), lessonId: new mongoose.Types.ObjectId(LESSON_1), completedAt: new Date(), timeSpentSeconds: 0, quizScore: null },
+          ],
+          percentComplete: 33,
+          currentSectionId: null,
+          currentLessonId: null,
+          lastAccessedAt: null,
+          totalTimeSpentSeconds: 0,
+        },
       });
-      mockCourseFindOne.mockResolvedValue(course);
+      mockCourseFindById.mockResolvedValue(course);
       mockEnrollmentFindOne.mockResolvedValue(enrollment);
 
       const result = await getNextLesson(TENANT, COMPANY, COURSE_ID, STUDENT);

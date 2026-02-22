@@ -18,7 +18,7 @@ describe('health', () => {
   it('GET /health returns ok', async () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
-    expect(res.body.myData.status).toBe('ok');
-    expect(res.body.meta.requestId).toBeTruthy();
+    expect(res.body.variant).toBe('success');
+    expect(res.body.message).toContain('ok');
   });
 });

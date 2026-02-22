@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const parentSignupSchema = z.object({
-  email: z.string().email().max(255).trim().toLowerCase(),
+  email: z.string().trim().toLowerCase().email().max(255),
   password: z.string().min(8).max(128),
   name: z.string().min(1).max(200).trim(),
 });

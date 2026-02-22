@@ -3,36 +3,33 @@ import mongoose from 'mongoose';
 
 // ---- Mocks ----
 
-const mockStripe = {
-  checkout: {
-    sessions: {
-      create: vi.fn(),
-      retrieve: vi.fn(),
+const { mockStripe, mockProductModel, mockPurchaseModel, mockParentLinkModel, mockCompanyModel, mockUserModel } = vi.hoisted(() => ({
+  mockStripe: {
+    checkout: {
+      sessions: {
+        create: vi.fn(),
+        retrieve: vi.fn(),
+      },
     },
   },
-};
-
-const mockProductModel: Record<string, any> = {
-  findOne: vi.fn(),
-  findById: vi.fn(),
-};
-
-const mockPurchaseModel: Record<string, any> = {
-  findOne: vi.fn(),
-  create: vi.fn(),
-};
-
-const mockParentLinkModel: Record<string, any> = {
-  findOne: vi.fn(),
-};
-
-const mockCompanyModel: Record<string, any> = {
-  findById: vi.fn(),
-};
-
-const mockUserModel: Record<string, any> = {
-  findById: vi.fn(),
-};
+  mockProductModel: {
+    findOne: vi.fn(),
+    findById: vi.fn(),
+  } as Record<string, any>,
+  mockPurchaseModel: {
+    findOne: vi.fn(),
+    create: vi.fn(),
+  } as Record<string, any>,
+  mockParentLinkModel: {
+    findOne: vi.fn(),
+  } as Record<string, any>,
+  mockCompanyModel: {
+    findById: vi.fn(),
+  } as Record<string, any>,
+  mockUserModel: {
+    findById: vi.fn(),
+  } as Record<string, any>,
+}));
 
 vi.mock('../../../src/shared/config/stripe', () => ({
   default: mockStripe,

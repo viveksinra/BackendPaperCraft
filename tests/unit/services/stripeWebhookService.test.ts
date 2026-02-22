@@ -1,37 +1,63 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 
-// ---- Mocks ----
+// ---- Mocks (hoisted so vi.mock factories can reference them) ----
 
-const mockStripe = {
-  webhooks: {
-    constructEvent: vi.fn(),
-  },
-  paymentIntents: {
-    retrieve: vi.fn(),
-  },
-  charges: {
-    retrieve: vi.fn(),
-  },
-};
+const { mockStripe, mockPurchaseModel, mockCompanyModel } = vi.hoisted(() => {
+  const mocks = {
+    mockStripe: {
+      webhooks: {
+        constructEvent: vi.fn(),
+      },
+      paymentIntents: {
+        retrieve: vi.fn(),
+      },
+      charges: {
+        retrieve: vi.fn(),
+      },
+    },
+    mockPurchaseModel: {
+      findOne: vi.fn(),
+      findById: vi.fn(),
+      findOneAndUpdate: vi.fn(),
+    } as Record<string, any>,
+    mockCompanyModel: {
+      findOne: vi.fn(),
+      findOneAndUpdate: vi.fn(),
+      findByIdAndUpdate: vi.fn(),
+    } as Record<string, any>,
+  };
 
-const mockPurchaseModel: Record<string, any> = {
-  findOne: vi.fn(),
-  findOneAndUpdate: vi.fn(),
-};
+  // The service calls mongoose.model("Company") at the top level during import.
+  // We intercept mongoose.model via Module._load patching won't help here since
+  // mongoose is an ESM import. Instead, register a dummy schema and patch
+  // mongoose.model to return our mock for "Company" lookups.
+  const mongoose = require("mongoose");
+  const { Schema } = mongoose;
+  try {
+    mongoose.model("Company");
+  } catch {
+    mongoose.model("Company", new Schema({}, { strict: false }));
+  }
+  const originalModel = mongoose.model.bind(mongoose);
+  mongoose.model = function (name: string, schema?: any) {
+    if (!schema && name === "Company") return mocks.mockCompanyModel;
+    return originalModel(name, schema);
+  };
 
-const mockCompanyModel: Record<string, any> = {
-  findOneAndUpdate: vi.fn(),
-  findOne: vi.fn(),
-};
+  return mocks;
+});
 
 vi.mock('../../../src/shared/config/stripe', () => ({
-  default: mockStripe,
+  stripe: mockStripe,
 }));
 
 vi.mock('../../../src/shared/config/env', () => ({
-  default: {
+  env: {
     STRIPE_WEBHOOK_SECRET: 'whsec_test_secret',
+    LOG_LEVEL: 'silent',
+    APP_NAME: 'test',
+    NODE_ENV: 'test',
   },
 }));
 
@@ -39,8 +65,8 @@ vi.mock('../../../src/models/purchase', () => ({
   PurchaseModel: mockPurchaseModel,
 }));
 
-vi.mock('../../../src/shared/config/logger', () => ({
-  default: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
+vi.mock('../../../src/shared/logger', () => ({
+  logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
 
 vi.mock('../../../src/services/purchaseService', () => ({
@@ -52,12 +78,6 @@ vi.mock('../../../src/queue/queues', () => ({
   addNotificationJob: vi.fn(),
   addPurchaseConfirmationJob: vi.fn(),
 }));
-
-const originalMongooseModel = mongoose.model.bind(mongoose);
-vi.spyOn(mongoose, 'model').mockImplementation((name: string) => {
-  if (name === 'Company') return mockCompanyModel as any;
-  return originalMongooseModel(name);
-});
 
 // ---- Helpers ----
 
@@ -85,6 +105,7 @@ describe('stripeWebhookService', () => {
       const session = {
         id: 'cs_test_123',
         payment_intent: 'pi_test_123',
+        payment_status: 'paid',
         metadata: { purchaseId },
       };
 
@@ -98,14 +119,13 @@ describe('stripeWebhookService', () => {
         status: 'pending',
         save: vi.fn().mockResolvedValue(undefined),
       };
-      mockPurchaseModel.findOne.mockResolvedValue(purchase);
+      mockPurchaseModel.findById.mockResolvedValue(purchase);
       mockStripe.paymentIntents.retrieve.mockResolvedValue({
         id: 'pi_test_123',
-        latest_charge: 'ch_test_123',
-      });
-      mockStripe.charges.retrieve.mockResolvedValue({
-        id: 'ch_test_123',
-        receipt_url: 'https://receipt.stripe.com/test',
+        latest_charge: {
+          id: 'ch_test_123',
+          receipt_url: 'https://receipt.stripe.com/test',
+        },
       });
 
       await handleWebhook(Buffer.from('raw'), 'sig_test');
@@ -117,6 +137,7 @@ describe('stripeWebhookService', () => {
       const session = {
         id: 'cs_test_123',
         payment_intent: 'pi_test_123',
+        payment_status: 'paid',
         metadata: { purchaseId },
       };
 
@@ -132,19 +153,20 @@ describe('stripeWebhookService', () => {
         accessGranted: true,
         save: vi.fn().mockResolvedValue(undefined),
       };
-      mockPurchaseModel.findOne.mockResolvedValue(purchase);
+      mockPurchaseModel.findById.mockResolvedValue(purchase);
 
       await handleWebhook(Buffer.from('raw'), 'sig_test');
 
       // Should not re-grant if already completed
       // (implementation may still call grantAccess which is idempotent)
-      expect(mockPurchaseModel.findOne).toHaveBeenCalled();
+      expect(mockPurchaseModel.findById).toHaveBeenCalled();
     });
 
     it('checkout.session.completed: saves receipt URL from charge', async () => {
       const session = {
         id: 'cs_test_123',
         payment_intent: 'pi_test_123',
+        payment_status: 'paid',
         metadata: { purchaseId },
       };
 
@@ -158,14 +180,13 @@ describe('stripeWebhookService', () => {
         status: 'pending',
         save: vi.fn().mockResolvedValue(undefined),
       };
-      mockPurchaseModel.findOne.mockResolvedValue(purchase);
+      mockPurchaseModel.findById.mockResolvedValue(purchase);
       mockStripe.paymentIntents.retrieve.mockResolvedValue({
         id: 'pi_test_123',
-        latest_charge: 'ch_test_123',
-      });
-      mockStripe.charges.retrieve.mockResolvedValue({
-        id: 'ch_test_123',
-        receipt_url: 'https://receipt.stripe.com/test',
+        latest_charge: {
+          id: 'ch_test_123',
+          receipt_url: 'https://receipt.stripe.com/test',
+        },
       });
 
       await handleWebhook(Buffer.from('raw'), 'sig_test');
@@ -213,7 +234,9 @@ describe('stripeWebhookService', () => {
       const purchase: Record<string, any> = {
         _id: purchaseId,
         status: 'pending',
-        buyerUserId: toObjectId().toString(),
+        studentUserId: toObjectId(),
+        companyId: toObjectId(),
+        productTitle: 'Test Product',
         save: vi.fn().mockResolvedValue(undefined),
       };
       mockPurchaseModel.findOne.mockResolvedValue(purchase);
@@ -238,7 +261,11 @@ describe('stripeWebhookService', () => {
       const purchase: Record<string, any> = {
         _id: purchaseId,
         status: 'completed',
+        stripeChargeId: 'ch_test_refund',
         stripePaymentIntentId: 'pi_test_refund',
+        studentUserId: toObjectId(),
+        companyId: toObjectId(),
+        productTitle: 'Test Product',
         save: vi.fn().mockResolvedValue(undefined),
       };
       mockPurchaseModel.findOne.mockResolvedValue(purchase);
@@ -249,6 +276,7 @@ describe('stripeWebhookService', () => {
     });
 
     it('account.updated: updates Company Stripe status fields', async () => {
+      const companyId = toObjectId();
       const account = {
         id: 'acct_test_update',
         payouts_enabled: true,
@@ -259,17 +287,19 @@ describe('stripeWebhookService', () => {
       mockStripe.webhooks.constructEvent.mockReturnValue({
         type: 'account.updated',
         data: { object: account },
+        account: 'acct_test_update',
       });
 
-      mockCompanyModel.findOneAndUpdate.mockResolvedValue({ _id: toObjectId() });
+      mockCompanyModel.findOne.mockResolvedValue({ _id: companyId, stripeAccountId: 'acct_test_update' });
+      mockCompanyModel.findByIdAndUpdate.mockResolvedValue({ _id: companyId });
 
       await handleWebhook(Buffer.from('raw'), 'sig_test');
 
-      expect(mockCompanyModel.findOneAndUpdate).toHaveBeenCalledWith(
-        { stripeAccountId: 'acct_test_update' },
+      expect(mockCompanyModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        companyId,
         expect.objectContaining({
-          payoutsEnabled: true,
-          chargesEnabled: true,
+          stripePayoutsEnabled: true,
+          stripeChargesEnabled: true,
         })
       );
     });

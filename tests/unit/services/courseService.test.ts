@@ -11,6 +11,9 @@ const mockCourseFindOneAndUpdate = vi.fn();
 const mockCourseDeleteOne = vi.fn();
 const mockCourseAggregate = vi.fn();
 const mockEnrollmentCountDocuments = vi.fn();
+const mockEnrollmentDeleteMany = vi.fn().mockResolvedValue({ deletedCount: 0 });
+const mockEnrollmentFindOne = vi.fn();
+const mockEnrollmentFind = vi.fn();
 const mockProductCreate = vi.fn();
 
 vi.mock("../../../src/models/course", () => ({
@@ -39,6 +42,20 @@ vi.mock("../../../src/models/course", () => ({
 vi.mock("../../../src/models/courseEnrollment", () => ({
   CourseEnrollmentModel: {
     countDocuments: (...args: unknown[]) => mockEnrollmentCountDocuments(...args),
+    deleteMany: (...args: unknown[]) => mockEnrollmentDeleteMany(...args),
+    findOne: (...args: unknown[]) => mockEnrollmentFindOne(...args),
+    find: (...args: unknown[]) => {
+      mockEnrollmentFind(...args);
+      return {
+        select: () => ({
+          sort: () => ({
+            limit: () => ({
+              lean: () => Promise.resolve([]),
+            }),
+          }),
+        }),
+      };
+    },
   },
 }));
 
@@ -117,6 +134,7 @@ describe("courseService", () => {
       const result = await createCourse(TENANT, COMPANY, {
         title: "Test Course",
         description: "A test course",
+        teacherId: USER_ID,
       }, USER);
 
       expect(mockCourseCreate).toHaveBeenCalledWith(
@@ -138,6 +156,7 @@ describe("courseService", () => {
 
       const result = await createCourse(TENANT, COMPANY, {
         title: "Test Course",
+        teacherId: USER_ID,
       }, USER);
 
       expect(result).toBeDefined();
@@ -149,7 +168,7 @@ describe("courseService", () => {
       const course = makeCourse();
       mockCourseFindOne.mockResolvedValue(course);
 
-      await updateCourse(COMPANY, (course._id as mongoose.Types.ObjectId).toString(), {
+      await updateCourse(TENANT, COMPANY, (course._id as mongoose.Types.ObjectId).toString(), {
         title: "Updated Title",
       }, USER);
 
@@ -161,7 +180,7 @@ describe("courseService", () => {
       mockCourseFindOne.mockResolvedValue(archived);
 
       await expect(
-        updateCourse(COMPANY, (archived._id as mongoose.Types.ObjectId).toString(), { title: "X" }, USER)
+        updateCourse(TENANT, COMPANY, (archived._id as mongoose.Types.ObjectId).toString(), { title: "X" }, USER)
       ).rejects.toThrow();
     });
   });
@@ -175,14 +194,14 @@ describe("courseService", () => {
           {
             title: "S1",
             lessons: [
-              { title: "L1", type: "text", content: { htmlContent: "<p>Hi</p>" } },
+              { title: "L1", type: "text", content: { textContent: "<p>Hi</p>", videoUrl: "", pdfUrl: "", testId: null, resourceFiles: [] }, estimatedMinutes: 5 },
             ],
           },
         ],
       });
       mockCourseFindOne.mockResolvedValue(course);
 
-      await publishCourse(COMPANY, (course._id as mongoose.Types.ObjectId).toString(), USER);
+      await publishCourse(TENANT, COMPANY, (course._id as mongoose.Types.ObjectId).toString(), USER);
 
       expect(course.save).toHaveBeenCalled();
     });
@@ -192,7 +211,7 @@ describe("courseService", () => {
       mockCourseFindOne.mockResolvedValue(course);
 
       await expect(
-        publishCourse(COMPANY, (course._id as mongoose.Types.ObjectId).toString(), USER)
+        publishCourse(TENANT, COMPANY, (course._id as mongoose.Types.ObjectId).toString(), USER)
       ).rejects.toThrow();
     });
 
@@ -204,7 +223,7 @@ describe("courseService", () => {
       mockCourseFindOne.mockResolvedValue(course);
 
       await expect(
-        publishCourse(COMPANY, (course._id as mongoose.Types.ObjectId).toString(), USER)
+        publishCourse(TENANT, COMPANY, (course._id as mongoose.Types.ObjectId).toString(), USER)
       ).rejects.toThrow();
     });
   });
@@ -214,7 +233,7 @@ describe("courseService", () => {
       const course = makeCourse({ status: "published" });
       mockCourseFindOne.mockResolvedValue(course);
 
-      await unpublishCourse(COMPANY, (course._id as mongoose.Types.ObjectId).toString(), USER);
+      await unpublishCourse(TENANT, COMPANY, (course._id as mongoose.Types.ObjectId).toString(), USER);
 
       expect(course.save).toHaveBeenCalled();
     });
@@ -225,7 +244,7 @@ describe("courseService", () => {
       const course = makeCourse({ status: "published" });
       mockCourseFindOne.mockResolvedValue(course);
 
-      await archiveCourse(COMPANY, (course._id as mongoose.Types.ObjectId).toString(), USER);
+      await archiveCourse(TENANT, COMPANY, (course._id as mongoose.Types.ObjectId).toString(), USER);
 
       expect(course.save).toHaveBeenCalled();
     });
@@ -236,8 +255,9 @@ describe("courseService", () => {
       const course = makeCourse({ status: "draft" });
       mockCourseFindOne.mockResolvedValue(course);
       mockCourseDeleteOne.mockResolvedValue({ deletedCount: 1 });
+      mockEnrollmentDeleteMany.mockResolvedValue({ deletedCount: 0 });
 
-      await deleteCourse(COMPANY, (course._id as mongoose.Types.ObjectId).toString());
+      await deleteCourse(TENANT, COMPANY, (course._id as mongoose.Types.ObjectId).toString());
 
       expect(mockCourseDeleteOne).toHaveBeenCalled();
     });
@@ -247,7 +267,7 @@ describe("courseService", () => {
       mockCourseFindOne.mockResolvedValue(course);
 
       await expect(
-        deleteCourse(COMPANY, (course._id as mongoose.Types.ObjectId).toString())
+        deleteCourse(TENANT, COMPANY, (course._id as mongoose.Types.ObjectId).toString())
       ).rejects.toThrow();
     });
   });
@@ -257,7 +277,7 @@ describe("courseService", () => {
       const course = makeCourse();
       mockCourseFindOne.mockResolvedValue(course);
 
-      const result = await getCourseById(COMPANY, (course._id as mongoose.Types.ObjectId).toString());
+      const result = await getCourseById(TENANT, COMPANY, (course._id as mongoose.Types.ObjectId).toString());
 
       expect(result).toBeDefined();
       expect(result.title).toBe("Test Course");
@@ -267,7 +287,7 @@ describe("courseService", () => {
       mockCourseFindOne.mockResolvedValue(null);
 
       await expect(
-        getCourseById(COMPANY, new mongoose.Types.ObjectId().toString())
+        getCourseById(TENANT, COMPANY, new mongoose.Types.ObjectId().toString())
       ).rejects.toThrow();
     });
   });

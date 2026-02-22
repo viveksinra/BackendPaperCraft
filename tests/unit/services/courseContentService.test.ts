@@ -15,6 +15,25 @@ vi.mock("../../../src/shared/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("../../../src/utils/s3", () => ({
+  deleteS3Object: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock mongoose.model for OnlineTest - the source uses it for cross-company quiz validation
+vi.mock("mongoose", async () => {
+  const actual = await vi.importActual<typeof import("mongoose")>("mongoose");
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      models: {},
+      model: vi.fn().mockReturnValue({
+        findOne: vi.fn().mockResolvedValue(null), // returns null = test not found
+      }),
+    },
+  };
+});
+
 import {
   addSection,
   updateSection,
@@ -31,7 +50,9 @@ import {
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
+const TENANT = "testTenant";
 const COMPANY = new mongoose.Types.ObjectId().toString();
+const USER = "teacher@test.com";
 
 function makeCourse(overrides: Record<string, unknown> = {}) {
   const sectionId1 = new mongoose.Types.ObjectId();
@@ -78,7 +99,7 @@ describe("courseContentService", () => {
       const course = makeCourse();
       mockCourseFindOne.mockResolvedValue(course);
 
-      await addSection(COMPANY, course._id.toString(), { title: "New Section" });
+      await addSection(TENANT, COMPANY, course._id.toString(), "New Section", USER);
 
       expect(course.sections).toHaveLength(3);
       expect(course.sections[2].title).toBe("New Section");
@@ -93,7 +114,7 @@ describe("courseContentService", () => {
       const sectionId = course.sections[0]._id.toString();
       mockCourseFindOne.mockResolvedValue(course);
 
-      await deleteSection(COMPANY, course._id.toString(), sectionId);
+      await deleteSection(TENANT, COMPANY, course._id.toString(), sectionId, USER);
 
       expect(course.sections).toHaveLength(1);
       expect(course.sections[0].title).toBe("Section 2");
@@ -108,7 +129,7 @@ describe("courseContentService", () => {
       const id1 = course.sections[1]._id.toString();
       mockCourseFindOne.mockResolvedValue(course);
 
-      await reorderSections(COMPANY, course._id.toString(), [id1, id0]);
+      await reorderSections(TENANT, COMPANY, course._id.toString(), [id1, id0], USER);
 
       expect(course.sections[0]._id.toString()).toBe(id1);
       expect(course.sections[1]._id.toString()).toBe(id0);
@@ -122,10 +143,10 @@ describe("courseContentService", () => {
       const sectionId = course.sections[0]._id.toString();
       mockCourseFindOne.mockResolvedValue(course);
 
-      await addLesson(COMPANY, course._id.toString(), sectionId, {
+      await addLesson(TENANT, COMPANY, course._id.toString(), sectionId, {
         title: "New Lesson",
         type: "pdf",
-      });
+      }, USER);
 
       expect(course.sections[0].lessons).toHaveLength(3);
       expect(course.sections[0].lessons[2].title).toBe("New Lesson");
@@ -140,7 +161,7 @@ describe("courseContentService", () => {
       const lessonId = course.sections[0].lessons[0]._id.toString();
       mockCourseFindOne.mockResolvedValue(course);
 
-      await deleteLesson(COMPANY, course._id.toString(), sectionId, lessonId);
+      await deleteLesson(TENANT, COMPANY, course._id.toString(), sectionId, lessonId, USER);
 
       expect(course.sections[0].lessons).toHaveLength(1);
       expect(course.save).toHaveBeenCalled();
@@ -155,7 +176,7 @@ describe("courseContentService", () => {
       const lid1 = course.sections[0].lessons[1]._id.toString();
       mockCourseFindOne.mockResolvedValue(course);
 
-      await reorderLessons(COMPANY, course._id.toString(), sectionId, [lid1, lid0]);
+      await reorderLessons(TENANT, COMPANY, course._id.toString(), sectionId, [lid1, lid0], USER);
 
       expect(course.sections[0].lessons[0]._id.toString()).toBe(lid1);
       expect(course.sections[0].lessons[1]._id.toString()).toBe(lid0);
@@ -172,11 +193,14 @@ describe("courseContentService", () => {
       mockCourseFindOne.mockResolvedValue(course);
 
       await moveLessonToSection(
+        TENANT,
         COMPANY,
         course._id.toString(),
-        fromSectionId,
         lessonId,
-        toSectionId
+        fromSectionId,
+        toSectionId,
+        0,
+        USER
       );
 
       expect(course.sections[0].lessons).toHaveLength(1);
@@ -193,11 +217,13 @@ describe("courseContentService", () => {
       mockCourseFindOne.mockResolvedValue(course);
 
       await setLessonVideoContent(
+        TENANT,
         COMPANY,
         course._id.toString(),
         sectionId,
         lessonId,
-        { videoUrl: "https://cdn.example.com/video.mp4", durationMinutes: 10 }
+        { videoUrl: "https://cdn.example.com/video.mp4", videoDuration: 600 },
+        USER
       );
 
       expect(course.save).toHaveBeenCalled();
@@ -222,11 +248,13 @@ describe("courseContentService", () => {
       // We test the expected behavior here
       await expect(
         setLessonQuizContent(
+          TENANT,
           COMPANY,
           course._id.toString(),
           sectionId,
           lessonId,
-          { testId: new mongoose.Types.ObjectId().toString() }
+          new mongoose.Types.ObjectId().toString(),
+          USER
         )
       ).rejects.toThrow();
     });
