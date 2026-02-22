@@ -34,6 +34,13 @@ export async function bootstrapWorkers(options?: WorkerBootstrapOptions): Promis
     const { startTestSchedulerWorker } = await import("../workers/testSchedulerWorker");
     startTestSchedulerWorker();
 
+    // Phase 7 workers
+    const { startAnalyticsRecomputeWorker } = await import("../workers/analyticsRecomputeWorker");
+    startAnalyticsRecomputeWorker();
+
+    const { startReportGenerationWorker } = await import("../workers/reportGenerationWorker");
+    startReportGenerationWorker();
+
     logger.info({
       msg: "Workers bootstrapped",
       mode,

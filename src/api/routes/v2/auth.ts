@@ -201,7 +201,7 @@ function sanitizeUser(userDoc: Record<string, any>, roles: string[], membershipR
     phoneNumber: userDoc.phoneNumber || "",
     about: userDoc.about || "",
     roles,
-    role: membershipRole || null,
+    role: membershipRole || userDoc.registeredAs || null,
     isSuperAdmin: !!userDoc.isSuperAdmin,
     createdAt: userDoc.createdAt,
   };

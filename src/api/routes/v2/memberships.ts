@@ -120,7 +120,7 @@ membershipsV2Router.post("/invite", async (req: AuthedRequest, res: Response) =>
     }
 
     const role = req.body?.role || "teacher";
-    const validRoles = ["admin", "senior_teacher", "teacher", "content_reviewer", "student", "parent"];
+    const validRoles = ["admin", "senior_teacher", "teacher", "content_reviewer"];
     if (!validRoles.includes(role)) {
       return res.fail("invalid role");
     }

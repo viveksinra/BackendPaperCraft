@@ -22,7 +22,7 @@ const InviteSchema = new Schema({
   role: {
     type: String,
     required: true,
-    enum: ['owner', 'admin', 'manager', 'editor', 'viewer'],
+    enum: ['owner', 'admin', 'manager', 'editor', 'viewer', 'senior_teacher', 'teacher', 'content_reviewer', 'student', 'parent'],
     default: 'viewer'
   },
   // Email of the person who created the invite

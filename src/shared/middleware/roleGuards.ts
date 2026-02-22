@@ -62,7 +62,10 @@ export function isParent(req: AuthedRequest, res: Response, next: NextFunction) 
           (membership: any) => {
             if (!membership) {
               // Allow newly registered parents who haven't linked yet
-              // Check if user was registered as parent (has at least one ParentLink ever, or membership)
+              if (user.registeredAs === "parent") {
+                return next();
+              }
+              // Check if user was registered as parent (has at least one ParentLink ever)
               return ParentLinkModel.findOne({ parentUserId: user._id }).then(
                 (anyLink: any) => {
                   if (anyLink) {

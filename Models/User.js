@@ -45,6 +45,11 @@ const UserSchema = new Schema({
     trim: true,
     maxlength: 500
   },
+  registeredAs: {
+    type: String,
+    enum: ['parent', 'student', null],
+    default: null
+  },
   isSuperAdmin: {
     type: Boolean,
     default: false

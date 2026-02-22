@@ -173,3 +173,103 @@ The ${appName} Team
   });
 }
 
+interface ParentInviteEmailParams {
+  parentEmail: string;
+  childName: string;
+  studentCode: string;
+  companyName: string;
+  inviterEmail: string;
+}
+
+/**
+ * Send email to parent with student code to link their child
+ */
+export async function sendParentInviteEmail(params: ParentInviteEmailParams): Promise<boolean> {
+  const { parentEmail, childName, studentCode, companyName, inviterEmail } = params;
+  const parentFrontendUrl = process.env.PARENT_CHILD_FRONTEND_URL || "http://localhost:3001";
+  const signupUrl = `${parentFrontendUrl}/auth/sign-up`;
+
+  const subject = `You're invited to monitor ${childName}'s progress on ${appName}`;
+
+  const text = `
+Hello,
+
+${inviterEmail} from "${companyName}" has invited you to monitor ${childName}'s progress on ${appName}.
+
+To get started:
+1. Sign up as a parent at: ${signupUrl}
+2. Use the student code below to link your child's account:
+
+Student Code: ${studentCode}
+
+If you already have an account, log in and use the "Link a Child" feature with the code above.
+
+Best regards,
+The ${appName} Team
+`.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .card { background: #ffffff; border-radius: 12px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { color: #1976d2; margin: 0; font-size: 24px; }
+    .content { margin-bottom: 30px; }
+    .code-box { background: #e3f2fd; border: 2px dashed #1976d2; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0; }
+    .code-box .label { font-size: 14px; color: #666; margin-bottom: 8px; }
+    .code-box .code { font-family: monospace; font-size: 28px; font-weight: 700; color: #1976d2; letter-spacing: 0.2em; }
+    .btn { display: inline-block; background: #1976d2; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; }
+    .btn-container { text-align: center; margin: 30px 0; }
+    .steps { background: #f5f5f5; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .steps ol { margin: 0; padding-left: 20px; }
+    .steps li { margin-bottom: 8px; }
+    .footer { text-align: center; color: #666; font-size: 14px; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h1>${appName}</h1>
+      </div>
+      <div class="content">
+        <p>Hello,</p>
+        <p><strong>${inviterEmail}</strong> from <strong>${companyName}</strong> has invited you to monitor <strong>${childName}</strong>'s progress.</p>
+        <div class="code-box">
+          <div class="label">Student Code</div>
+          <div class="code">${studentCode}</div>
+        </div>
+        <div class="steps">
+          <ol>
+            <li>Sign up as a parent on ${appName}</li>
+            <li>Use the student code above to link ${childName}'s account</li>
+            <li>View their results, tests, and progress</li>
+          </ol>
+        </div>
+        <div class="btn-container">
+          <a href="${signupUrl}" class="btn">Sign Up as Parent</a>
+        </div>
+      </div>
+      <div class="footer">
+        <p>Best regards,<br>The ${appName} Team</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+`.trim();
+
+  return sendEmail({
+    to: parentEmail,
+    subject,
+    text,
+    html,
+  });
+}
+

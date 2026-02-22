@@ -1,9 +1,10 @@
 import { Router, Request, Response } from "express";
 import path from "path";
-import { linkChildSchema } from "../../../shared/validation/parentValidation";
+import { linkChildSchema, createChildSchema } from "../../../shared/validation/parentValidation";
 import { isParent, isParentOf } from "../../../shared/middleware/roleGuards";
 import {
   linkChild,
+  createChild,
   unlinkChild,
   getLinkedChildren,
   getParentDashboard,
@@ -51,6 +52,25 @@ parentV2Router.post("/link-child", isParent, async (req: AuthedRequest, res: Res
   } catch (error: any) {
     const status = error.status || 500;
     return res.status(status).sendEnvelope(error.message || "failed to link child", "error");
+  }
+});
+
+// POST /api/v2/parent/create-child
+parentV2Router.post("/create-child", isParent, async (req: AuthedRequest, res: Response) => {
+  try {
+    const parsed = createChildSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).sendEnvelope(
+        parsed.error.issues.map((e: { message: string }) => e.message).join(", "),
+        "error"
+      );
+    }
+    const userId = await resolveUserId(req);
+    const result = await createChild(userId, parsed.data);
+    return res.status(201).sendEnvelope("child created", "success", result);
+  } catch (error: any) {
+    const status = error.status || 500;
+    return res.status(status).sendEnvelope(error.message || "failed to create child", "error");
   }
 });
 

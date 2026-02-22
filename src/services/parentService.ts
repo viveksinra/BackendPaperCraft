@@ -1,13 +1,17 @@
 import path from "path";
 import mongoose from "mongoose";
+import { nanoid } from "nanoid";
 import { StudentModel, StudentDocument } from "../models/student";
 import { ParentLinkModel, ParentLinkDocument } from "../models/parentLink";
 import { OnlineTestModel } from "../models/onlineTest";
 import { TestAttemptModel } from "../models/testAttempt";
 import { ClassModel } from "../models/class";
+import { generateStudentCode } from "./studentService";
 
 const legacyAuth = require(path.join(__dirname, "..", "..", "utils", "auth"));
 const User = require(path.join(__dirname, "..", "..", "Models", "User"));
+const Company = require(path.join(__dirname, "..", "..", "Models", "Company"));
+const Membership = require(path.join(__dirname, "..", "..", "Models", "Membership"));
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -62,9 +66,10 @@ export async function registerParent(
     password: passwordRecord,
     firstName: name,
     lastName: "",
+    registeredAs: "parent",
   });
 
-  const token: string = legacyAuth.signToken({ sub: email.toLowerCase() });
+  const token: string = legacyAuth.signToken({ sub: email.toLowerCase(), role: "parent" });
 
   return { user, token };
 }
@@ -122,6 +127,119 @@ export async function linkChild(
     link,
     studentName: studentUser.firstName || "",
     studentOrgs: student.organizations,
+  };
+}
+
+// ── 2b. Create Child ─────────────────────────────────────────────────────
+
+interface CreateChildData {
+  name: string;
+  relationship: string;
+  email?: string;
+  password?: string;
+  yearGroup?: string;
+  orgCode?: string;
+}
+
+export async function createChild(
+  parentUserId: string,
+  data: CreateChildData
+): Promise<{
+  child: {
+    userId: string;
+    studentCode: string;
+    name: string;
+    email: string;
+    yearGroup?: string;
+    organizations: StudentDocument["organizations"];
+  };
+  link: ParentLinkDocument;
+}> {
+  let email: string;
+  let passwordRecord: any;
+
+  if (data.email) {
+    // Check email doesn't already exist
+    email = data.email.toLowerCase();
+    const existing = await User.findOne({ email });
+    if (existing) {
+      throw Object.assign(new Error("email already registered"), { status: 409 });
+    }
+    passwordRecord = legacyAuth.createPasswordRecord(data.password);
+  } else {
+    // Auto-generate placeholder email; no usable password
+    email = `child_${nanoid(8)}@managed.local`;
+    passwordRecord = legacyAuth.createPasswordRecord(nanoid(32));
+  }
+
+  // Create user
+  const user = await User.create({
+    email,
+    password: passwordRecord,
+    firstName: data.name,
+    lastName: "",
+    registeredAs: "student",
+  });
+
+  // Generate unique student code
+  const studentCode = await generateStudentCode();
+
+  // Build organizations array
+  const organizations: StudentDocument["organizations"] = [];
+
+  if (data.orgCode) {
+    const company = await Company.findOne({
+      username: { $regex: new RegExp(`^${data.orgCode}$`, "i") },
+    });
+    if (!company) {
+      throw Object.assign(new Error("invalid organization code"), { status: 404 });
+    }
+
+    organizations.push({
+      companyId: company._id,
+      tenantId: company.slug || "default",
+      joinedAt: new Date(),
+      role: "student",
+      orgName: company.name,
+      isActive: true,
+    } as any);
+
+    // Create membership
+    await Membership.create({
+      companyId: company._id,
+      userEmail: email,
+      role: "student",
+    });
+  }
+
+  // Create student document
+  const student = await StudentModel.create({
+    userId: user._id,
+    studentCode,
+    yearGroup: data.yearGroup || "",
+    organizations,
+  });
+
+  // Create parent link
+  const link = await ParentLinkModel.create({
+    parentUserId: toObjectId(parentUserId),
+    studentUserId: user._id,
+    studentId: student._id,
+    status: "active",
+    relationship: data.relationship,
+    linkedAt: new Date(),
+  });
+
+  return {
+    child: {
+      userId: user._id.toString(),
+      studentCode,
+      name: data.name,
+      email,
+      yearGroup: data.yearGroup,
+      organizations: student.organizations,
+    },
+    link,
   };
 }
 

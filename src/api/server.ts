@@ -37,6 +37,14 @@ import { purchasesV2Router } from "./routes/v2/purchases";
 import { revenueV2Router } from "./routes/v2/revenue";
 import { stripeConnectV2Router } from "./routes/v2/stripeConnect";
 import { stripeWebhookV2Router } from "./routes/v2/stripeWebhook";
+import { analyticsV2Router } from "./routes/v2/analytics";
+import { classAnalyticsV2Router } from "./routes/v2/classAnalytics";
+import { instituteAnalyticsV2Router } from "./routes/v2/instituteAnalytics";
+import { questionAnalyticsV2Router } from "./routes/v2/questionAnalytics";
+import { elevenPlusAnalyticsV2Router } from "./routes/v2/elevenPlusAnalytics";
+import { reportsV2Router } from "./routes/v2/reports";
+import { studentAnalyticsV2Router } from "./routes/v2/studentAnalytics";
+import { studentAdminV2Router } from "./routes/v2/studentAdmin";
 
 export function buildApp() {
   const app = express();
@@ -117,6 +125,7 @@ export function buildApp() {
   app.use("/api/v2/student", studentV2Router);
   app.use("/api/v2/auth/parent", parentAuthV2Router);
   app.use("/api/v2/parent", parentV2Router);
+  app.use("/api/v2/companies/:companyId/students", studentAdminV2Router);
 
   // Phase 5: Class Management, Homework & Fee Tracking
   app.use("/api/v2/companies/:companyId/classes", classesV2Router);
@@ -134,6 +143,15 @@ export function buildApp() {
   app.use("/api/v2/companies/:companyId/revenue", revenueV2Router);
   app.use("/api/v2/companies/:companyId/stripe", stripeConnectV2Router);
   // Note: stripeWebhookV2Router is registered above (before JSON parser) for raw body handling
+
+  // Phase 7: Analytics & Reporting
+  app.use("/api/v2/companies/:companyId/analytics", analyticsV2Router);
+  app.use("/api/v2/companies/:companyId/classes/:classId/analytics", classAnalyticsV2Router);
+  app.use("/api/v2/companies/:companyId/analytics/institute", instituteAnalyticsV2Router);
+  app.use("/api/v2/companies/:companyId/analytics/questions", questionAnalyticsV2Router);
+  app.use("/api/v2/companies/:companyId/analytics/eleven-plus", elevenPlusAnalyticsV2Router);
+  app.use("/api/v2/companies/:companyId/reports", reportsV2Router);
+  app.use("/api/v2/student", studentAnalyticsV2Router);
 
   app.use((req, res) => {
     res.status(404).sendEnvelope(`Route ${req.originalUrl} not found`, "error");

@@ -8,6 +8,8 @@ let homeworkStatusQueue: Queue | null = null;
 let feeReminderQueue: Queue | null = null;
 let notificationsQueue: Queue | null = null;
 let purchaseConfirmationQueue: Queue | null = null;
+let analyticsRecomputeQueue: Queue | null = null;
+let reportGenerationQueue: Queue | null = null;
 
 function ensureQueues() {
   if (alertQueue) return;
@@ -45,6 +47,16 @@ function ensureQueues() {
   purchaseConfirmationQueue = new Queue("purchase_confirmation", {
     connection,
     defaultJobOptions: { attempts: 3, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true },
+  });
+
+  // Phase 7 queues
+  analyticsRecomputeQueue = new Queue("analytics_recompute", {
+    connection,
+    defaultJobOptions: { attempts: 2, removeOnComplete: true },
+  });
+  reportGenerationQueue = new Queue("report_generation", {
+    connection,
+    defaultJobOptions: { attempts: 3, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true, removeOnFail: false },
   });
 }
 
@@ -114,4 +126,37 @@ export async function addPurchaseConfirmationJob(data: { purchaseId: string }) {
     return null;
   }
   return purchaseConfirmationQueue.add("sendPurchaseConfirmation", data);
+}
+
+// Phase 7 queue accessors
+export function getAnalyticsRecomputeQueue(): Queue | null {
+  ensureQueues();
+  return analyticsRecomputeQueue;
+}
+
+export function getReportGenerationQueue(): Queue | null {
+  ensureQueues();
+  return reportGenerationQueue;
+}
+
+export async function addAnalyticsRecomputeJob(data: {
+  companyId: string;
+  studentUserId: string;
+  testId: string;
+}) {
+  ensureQueues();
+  if (!analyticsRecomputeQueue) {
+    logger.warn({ msg: "Redis not available; skipping analytics recompute job" });
+    return null;
+  }
+  return analyticsRecomputeQueue.add("recomputeAnalytics", data);
+}
+
+export async function addReportGenerationJob(data: { reportId: string }) {
+  ensureQueues();
+  if (!reportGenerationQueue) {
+    logger.warn({ msg: "Redis not available; skipping report generation job" });
+    return null;
+  }
+  return reportGenerationQueue.add("generateReport", data);
 }
