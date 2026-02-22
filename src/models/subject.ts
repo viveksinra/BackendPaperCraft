@@ -24,7 +24,7 @@ const SubjectSchema = new Schema<SubjectDocument>(
     tenantId: { type: String, required: true },
     companyId: { type: Schema.Types.ObjectId, ref: "Company", required: true },
     name: { type: String, required: true, trim: true },
-    slug: { type: String, required: true, trim: true },
+    slug: { type: String, required: true, trim: true, lowercase: true },
     level: {
       type: String,
       required: true,

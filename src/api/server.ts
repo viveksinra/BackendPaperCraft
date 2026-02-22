@@ -53,6 +53,8 @@ import { courseEnrollmentV2Router } from "./routes/v2/courseEnrollment";
 import { certificatesV2Router } from "./routes/v2/certificates";
 import { courseAnalyticsV2Router } from "./routes/v2/courseAnalytics";
 import { parentCoursesV2Router } from "./routes/v2/parentCourses";
+import { questionsV2Router } from "./routes/v2/questions";
+import { subjectsV2Router } from "./routes/v2/subjects";
 
 export function buildApp() {
   const app = express();
@@ -117,6 +119,10 @@ export function buildApp() {
   app.use("/api/v2/companies", companiesV2Router);
   app.use("/api/v2/companies/:companyId/memberships", membershipsV2Router);
   app.use("/api/v2/invites", invitePublicRouter);
+
+  // Phase 1: Question Bank Engine
+  app.use("/api/v2/companies/:companyId/questions", questionsV2Router);
+  app.use("/api/v2/companies/:companyId/subjects", subjectsV2Router);
 
   // Phase 2: Paper Creation & PDF Generation
   app.use("/api/v2/companies/:companyId/paper-templates", paperTemplatesV2Router);
