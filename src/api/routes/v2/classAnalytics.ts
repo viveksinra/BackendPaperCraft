@@ -1,13 +1,14 @@
 import { Router, Request, Response } from "express";
 import path from "path";
 import { requireCompanyContext } from "../../../shared/middleware/requireCompanyContext";
+import { ensureRole } from "../../../shared/middleware/ensureRole";
 import * as classAnalyticsService from "../../../services/classAnalyticsService";
 
 const legacyAuth = require(path.join(__dirname, "..", "..", "..", "..", "utils", "auth"));
 const { ensureAuth } = legacyAuth;
 
 export const classAnalyticsV2Router = Router({ mergeParams: true });
-classAnalyticsV2Router.use(ensureAuth, requireCompanyContext);
+classAnalyticsV2Router.use(ensureAuth, requireCompanyContext, ensureRole("teacher", "admin", "owner"));
 
 // GET /
 classAnalyticsV2Router.get("/", async (req: Request, res: Response) => {

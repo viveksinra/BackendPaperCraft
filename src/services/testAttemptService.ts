@@ -3,6 +3,8 @@ import { TestAttemptModel, TestAttemptDocument, AttemptAnswer } from "../models/
 import { OnlineTestModel, OnlineTestDocument } from "../models/onlineTest";
 import { QuestionModel } from "../models/question";
 import { ClassModel } from "../models/class";
+import { addAnalyticsRecomputeJob } from "../queue/queues";
+import { logger } from "../shared/logger";
 
 function toObjectId(id: string): mongoose.Types.ObjectId {
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -680,7 +682,19 @@ export async function submitTest(
 
   await attempt.save();
 
-  // NOTE: Auto-grading trigger will be wired later (placeholder)
+  // Fire-and-forget: queue analytics recompute (Phase 7)
+  try {
+    await addAnalyticsRecomputeJob({
+      companyId: attempt.companyId.toString(),
+      studentUserId: attempt.studentId.toString(),
+      testId: attempt.testId.toString(),
+    });
+  } catch (err) {
+    logger.warn({
+      msg: "Failed to queue analytics recompute after submission",
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   return { submitted: true };
 }
@@ -716,6 +730,20 @@ export async function autoSubmit(
   }
 
   await attempt.save();
+
+  // Fire-and-forget: queue analytics recompute (Phase 7)
+  try {
+    await addAnalyticsRecomputeJob({
+      companyId: attempt.companyId.toString(),
+      studentUserId: attempt.studentId.toString(),
+      testId: attempt.testId.toString(),
+    });
+  } catch (err) {
+    logger.warn({
+      msg: "Failed to queue analytics recompute after auto-submit",
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   return { submitted: true };
 }

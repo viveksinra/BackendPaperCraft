@@ -1,13 +1,14 @@
 import { Router, Request, Response } from "express";
 import path from "path";
 import { requireCompanyContext } from "../../../shared/middleware/requireCompanyContext";
+import { ensureRole } from "../../../shared/middleware/ensureRole";
 import * as elevenPlusService from "../../../services/elevenPlusAnalyticsService";
 
 const legacyAuth = require(path.join(__dirname, "..", "..", "..", "..", "utils", "auth"));
 const { ensureAuth } = legacyAuth;
 
 export const elevenPlusAnalyticsV2Router = Router({ mergeParams: true });
-elevenPlusAnalyticsV2Router.use(ensureAuth, requireCompanyContext);
+elevenPlusAnalyticsV2Router.use(ensureAuth, requireCompanyContext, ensureRole("teacher", "admin", "owner"));
 
 // GET /students/:studentId/band
 elevenPlusAnalyticsV2Router.get("/students/:studentId/band", async (req: Request, res: Response) => {
@@ -59,8 +60,8 @@ elevenPlusAnalyticsV2Router.get("/config", async (req: Request, res: Response) =
   }
 });
 
-// PUT /config
-elevenPlusAnalyticsV2Router.put("/config", async (req: Request, res: Response) => {
+// PUT /config (admin/owner only)
+elevenPlusAnalyticsV2Router.put("/config", ensureRole("admin", "owner"), async (req: Request, res: Response) => {
   try {
     const { companyId } = req.params;
     const { strongPass, pass, borderline } = req.body;

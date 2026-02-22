@@ -1,15 +1,18 @@
 import { Request, Response, NextFunction } from "express";
 import path from "path";
 import { ParentLinkModel } from "../../models/parentLink";
+import { StudentModel } from "../../models/student";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
 const Membership = require(path.join(__dirname, "..", "..", "..", "Models", "Membership"));
+// eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+const User = require(path.join(__dirname, "..", "..", "..", "Models", "User"));
 
 type AuthedRequest = Request & { auth?: { sub?: string }; parentLink?: any };
 
 /**
- * Middleware: requires the authenticated user to have a "student" membership
- * in at least one organization.
+ * Middleware: requires the authenticated user to be a student.
+ * Checks Membership role OR registeredAs OR existence of a Student document.
  */
 export function isStudent(req: AuthedRequest, res: Response, next: NextFunction) {
   const email = req.auth?.sub;
@@ -19,10 +22,24 @@ export function isStudent(req: AuthedRequest, res: Response, next: NextFunction)
 
   Membership.findOne({ userEmail: email, role: "student" })
     .then((membership: any) => {
-      if (!membership) {
-        return res.status(403).sendEnvelope("student role required", "error");
+      if (membership) {
+        return next();
       }
-      next();
+      // Fallback: check if user is registered as student or has a Student document
+      return User.findOne({ email }).then((user: any) => {
+        if (!user) {
+          return res.status(403).sendEnvelope("student role required", "error");
+        }
+        if (user.registeredAs === "student") {
+          return next();
+        }
+        return StudentModel.findOne({ userId: user._id }).then((student: any) => {
+          if (student) {
+            return next();
+          }
+          return res.status(403).sendEnvelope("student role required", "error");
+        });
+      });
     })
     .catch((err: Error) => {
       return res.status(500).sendEnvelope("failed to verify role", "error");

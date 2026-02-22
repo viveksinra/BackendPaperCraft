@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import path from "path";
 import { requireCompanyContext } from "../../../shared/middleware/requireCompanyContext";
+import { ensureRole } from "../../../shared/middleware/ensureRole";
 import {
   analyticsQuerySchema,
   topicDrilldownSchema,
@@ -12,7 +13,7 @@ const legacyAuth = require(path.join(__dirname, "..", "..", "..", "..", "utils",
 const { ensureAuth } = legacyAuth;
 
 export const analyticsV2Router = Router({ mergeParams: true });
-analyticsV2Router.use(ensureAuth, requireCompanyContext);
+analyticsV2Router.use(ensureAuth, requireCompanyContext, ensureRole("teacher", "admin", "owner"));
 
 // GET /students/:studentId
 analyticsV2Router.get("/students/:studentId", async (req: Request, res: Response) => {

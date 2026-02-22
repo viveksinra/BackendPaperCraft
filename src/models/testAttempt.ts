@@ -216,6 +216,11 @@ TestAttemptSchema.index({ testId: 1, status: 1 });
 TestAttemptSchema.index({ studentId: 1, status: 1, createdAt: -1 });
 TestAttemptSchema.index({ testId: 1, "result.marksObtained": -1 });
 
+// Phase 7 analytics compound indexes
+TestAttemptSchema.index({ companyId: 1, studentId: 1, status: 1 });
+TestAttemptSchema.index({ companyId: 1, testId: 1, studentId: 1 });
+TestAttemptSchema.index({ companyId: 1, "answers.questionId": 1, status: 1 });
+
 // ─── Export ─────────────────────────────────────────────────────────────────
 
 export const TestAttemptModel =

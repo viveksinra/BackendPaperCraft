@@ -254,11 +254,17 @@ export async function getStudentReports(
 // ─── downloadReport ─────────────────────────────────────────────────────────
 
 export async function downloadReport(
-  reportId: string
+  reportId: string,
+  companyId?: string
 ): Promise<{ downloadUrl: string }> {
   const report = await ReportModel.findById(toObjectId(reportId));
   if (!report)
     throw Object.assign(new Error("Report not found"), { status: 404 });
+
+  // Validate tenant isolation: report must belong to the requesting company
+  if (companyId && report.companyId.toString() !== companyId) {
+    throw Object.assign(new Error("Report not found"), { status: 404 });
+  }
 
   if (report.status !== "completed" || !report.pdfUrl)
     throw Object.assign(new Error("Report not ready for download"), {

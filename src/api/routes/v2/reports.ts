@@ -12,7 +12,7 @@ const legacyAuth = require(path.join(__dirname, "..", "..", "..", "..", "utils",
 const { ensureAuth } = legacyAuth;
 
 export const reportsV2Router = Router({ mergeParams: true });
-reportsV2Router.use(ensureAuth, requireCompanyContext);
+reportsV2Router.use(ensureAuth, requireCompanyContext, ensureRole("teacher", "admin", "owner"));
 
 // POST /
 reportsV2Router.post("/", async (req: Request, res: Response) => {
@@ -72,8 +72,8 @@ reportsV2Router.get("/:reportId", async (req: Request, res: Response) => {
 // GET /:reportId/download
 reportsV2Router.get("/:reportId/download", async (req: Request, res: Response) => {
   try {
-    const { reportId } = req.params;
-    const result = await reportService.downloadReport(reportId);
+    const { companyId, reportId } = req.params;
+    const result = await reportService.downloadReport(reportId, companyId);
     return res.ok("download url", result);
   } catch (err: any) {
     return res.status(err.status || 500).sendEnvelope(err.message, "error");

@@ -3,6 +3,8 @@ import { TestAttemptModel, TestAttemptDocument } from "../models/testAttempt";
 import { OnlineTestModel } from "../models/onlineTest";
 import { QuestionModel } from "../models/question";
 import * as resultComputationService from "./resultComputationService";
+import { addAnalyticsRecomputeJob } from "../queue/queues";
+import { logger } from "../shared/logger";
 
 function toObjectId(id: string): mongoose.Types.ObjectId {
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -335,6 +337,23 @@ export async function finalizeGrading(
           ans.timeSpent
         );
       }
+    }
+  }
+
+  // Fire-and-forget: queue analytics recompute for each graded student (Phase 7)
+  for (const attempt of attempts) {
+    try {
+      await addAnalyticsRecomputeJob({
+        companyId: companyId,
+        studentUserId: attempt.studentId.toString(),
+        testId: testId,
+      });
+    } catch (err) {
+      logger.warn({
+        msg: "Failed to queue analytics recompute after grading finalization",
+        studentUserId: attempt.studentId.toString(),
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
